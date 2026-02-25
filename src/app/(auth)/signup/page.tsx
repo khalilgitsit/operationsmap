@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { signUpUser } from '@/server/actions/auth';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -15,53 +15,16 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    // Sign up the user
-    const { data: authData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const result = await signUpUser(email, password, orgName);
 
-    if (signUpError) {
-      setError(signUpError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (!authData.user) {
-      setError('Signup failed. Please try again.');
-      setLoading(false);
-      return;
-    }
-
-    // Create organization
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .insert({ name: orgName })
-      .select('id')
-      .single();
-
-    if (orgError) {
-      setError(orgError.message);
-      setLoading(false);
-      return;
-    }
-
-    // Link user to organization as admin
-    const { error: linkError } = await supabase.from('user_organizations').insert({
-      user_id: authData.user.id,
-      organization_id: org.id,
-      role: 'admin',
-    });
-
-    if (linkError) {
-      setError(linkError.message);
+    if (!result.success) {
+      setError(result.error);
       setLoading(false);
       return;
     }
