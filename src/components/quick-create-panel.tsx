@@ -178,12 +178,12 @@ export function QuickCreatePanel({
 
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
-      <SheetContent className="w-[400px] sm:w-[450px] flex flex-col">
-        <SheetHeader>
+      <SheetContent className="w-[400px] sm:w-[450px] flex flex-col p-0">
+        <SheetHeader className="px-6 pt-6 pb-2">
           <SheetTitle>Create {config.label}</SheetTitle>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {errors._form && (
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               {errors._form}
@@ -216,7 +216,7 @@ export function QuickCreatePanel({
           ))}
         </div>
 
-        <div className="flex gap-2 pt-4 border-t">
+        <div className="flex gap-2 px-6 py-4 border-t">
           <Button
             className="flex-1"
             onClick={() => handleCreate(false)}

@@ -46,8 +46,9 @@ export async function listRecords(
   const sortDirection = options.sortDirection ?? 'desc';
 
   // Get total count
-  const { count } = await fromTable(supabase, table)
+  const { count, error: countError } = await fromTable(supabase, table)
     .select('*', { count: 'exact', head: true });
+  if (countError) return { success: false, error: countError.message };
 
   let query = fromTable(supabase, table)
     .select('*')

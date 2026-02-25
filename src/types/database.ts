@@ -72,6 +72,7 @@ export type Database = {
           end_state: string | null
           id: string
           organization_id: string
+          position: number
           status: Database["public"]["Enums"]["operational_status"]
           subfunction_id: string | null
           title: string
@@ -87,6 +88,7 @@ export type Database = {
           end_state?: string | null
           id?: string
           organization_id: string
+          position?: number
           status?: Database["public"]["Enums"]["operational_status"]
           subfunction_id?: string | null
           title: string
@@ -102,6 +104,7 @@ export type Database = {
           end_state?: string | null
           id?: string
           organization_id?: string
+          position?: number
           status?: Database["public"]["Enums"]["operational_status"]
           subfunction_id?: string | null
           title?: string
@@ -1409,6 +1412,7 @@ export type Database = {
           id: string
           organization_id: string
           owner_id: string | null
+          position: number
           status: Database["public"]["Enums"]["operational_status"]
           title: string
           updated_at: string
@@ -1422,6 +1426,7 @@ export type Database = {
           id?: string
           organization_id: string
           owner_id?: string | null
+          position?: number
           status?: Database["public"]["Enums"]["operational_status"]
           title: string
           updated_at?: string
@@ -1435,6 +1440,7 @@ export type Database = {
           id?: string
           organization_id?: string
           owner_id?: string | null
+          position?: number
           status?: Database["public"]["Enums"]["operational_status"]
           title?: string
           updated_at?: string
