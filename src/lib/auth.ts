@@ -1,11 +1,22 @@
 import { createClient } from '@/lib/supabase/server';
-import { redirect } from 'next/navigation';
 
 export interface AuthContext {
   userId: string;
   organizationId: string;
 }
 
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+/**
+ * Get the authenticated user's context.
+ * Throws AuthError if not authenticated — callers should catch this
+ * and return an error result instead of letting it propagate.
+ */
 export async function getAuthContext(): Promise<AuthContext> {
   const supabase = await createClient();
 
@@ -14,7 +25,7 @@ export async function getAuthContext(): Promise<AuthContext> {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login');
+    throw new AuthError('Not authenticated');
   }
 
   const { data: userOrg } = await supabase
@@ -25,11 +36,24 @@ export async function getAuthContext(): Promise<AuthContext> {
     .single();
 
   if (!userOrg) {
-    redirect('/login');
+    throw new AuthError('No organization found');
   }
 
   return {
     userId: user.id,
     organizationId: userOrg.organization_id,
   };
+}
+
+/**
+ * Safe version for server actions — returns null instead of throwing.
+ * Use this in 'use server' functions to avoid redirect loops.
+ */
+export async function getAuthContextSafe(): Promise<AuthContext | null> {
+  try {
+    return await getAuthContext();
+  } catch (e) {
+    if (e instanceof AuthError) return null;
+    throw e;
+  }
 }

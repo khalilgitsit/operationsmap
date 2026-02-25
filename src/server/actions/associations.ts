@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContextSafe } from '@/lib/auth';
 import { logActivity } from '@/lib/activity-log';
 import type { ActionResult } from '@/types/actions';
 import type { Database } from '@/types/database';
@@ -51,7 +51,9 @@ export async function addAssociation(
   const config = JUNCTION_COLUMNS[table];
   if (!config) return { success: false, error: 'Invalid junction table' };
 
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
 
   const insertData: Record<string, unknown> = {
@@ -89,7 +91,9 @@ export async function removeAssociation(
   const config = JUNCTION_COLUMNS[table];
   if (!config) return { success: false, error: 'Invalid junction table' };
 
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
 
   const { error } = await supabase

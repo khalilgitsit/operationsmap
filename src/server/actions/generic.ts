@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContextSafe } from '@/lib/auth';
 import { logActivity } from '@/lib/activity-log';
 import type { ActionResult } from '@/types/actions';
 import type { Database } from '@/types/database';
@@ -36,7 +36,8 @@ export async function listRecords(
     searchFields?: string[];
   } = {}
 ): Promise<ActionResult<{ items: Record<string, unknown>[]; nextCursor: string | null; totalCount: number }>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
   const table = TABLE_MAP[objectType];
   if (!table) return { success: false, error: `Unknown object type: ${objectType}` };
@@ -103,7 +104,8 @@ export async function getRecord(
   objectType: string,
   id: string
 ): Promise<ActionResult<Record<string, unknown>>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
   const table = TABLE_MAP[objectType];
   if (!table) return { success: false, error: `Unknown object type: ${objectType}` };
@@ -119,7 +121,9 @@ export async function updateRecord(
   id: string,
   updates: Record<string, unknown>
 ): Promise<ActionResult<Record<string, unknown>>> {
-  const { userId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId } = auth;
   const supabase = await createClient();
   const table = TABLE_MAP[objectType];
   if (!table) return { success: false, error: `Unknown object type: ${objectType}` };
@@ -163,7 +167,9 @@ export async function createRecord(
   objectType: string,
   input: Record<string, unknown>
 ): Promise<ActionResult<Record<string, unknown>>> {
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
   const table = TABLE_MAP[objectType];
   if (!table) return { success: false, error: `Unknown object type: ${objectType}` };
@@ -196,7 +202,9 @@ export async function deleteRecord(
   objectType: string,
   id: string
 ): Promise<ActionResult<null>> {
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
   const table = TABLE_MAP[objectType];
   if (!table) return { success: false, error: `Unknown object type: ${objectType}` };
@@ -222,7 +230,8 @@ export async function searchRecords(
   query: string,
   limit: number = 20
 ): Promise<ActionResult<{ id: string; label: string }[]>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
   const table = TABLE_MAP[objectType];
   if (!table) return { success: false, error: `Unknown object type: ${objectType}` };
@@ -258,7 +267,8 @@ export async function getActivityLog(
   cursor?: string,
   limit: number = 20
 ): Promise<ActionResult<{ items: Record<string, unknown>[]; nextCursor: string | null }>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
 
   let query = supabase
@@ -289,7 +299,9 @@ export async function addComment(
   recordType: string,
   commentText: string
 ): Promise<ActionResult<null>> {
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
 
   await logActivity({
@@ -311,7 +323,8 @@ export async function getAssociations(
   junctionTable: string,
   targetType: string
 ): Promise<ActionResult<Record<string, unknown>[]>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
   const targetTable = TABLE_MAP[targetType];
   if (!targetTable) return { success: false, error: `Unknown target type: ${targetType}` };

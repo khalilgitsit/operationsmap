@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContextSafe } from '@/lib/auth';
 import type { ActionResult } from '@/types/actions';
 
 export interface FunctionChartFunction {
@@ -40,7 +40,8 @@ export interface FunctionDetailCoreActivity {
 export async function getFunctionChartData(): Promise<
   ActionResult<FunctionChartFunction[]>
 > {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
 
   // Fetch all functions
@@ -177,7 +178,8 @@ export async function getFunctionDetailData(
     }[];
   }>
 > {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
 
   // Fetch function
@@ -301,7 +303,9 @@ export async function getFunctionDetailData(
 export async function reorderSubfunctions(
   updates: { id: string; position: number }[]
 ): Promise<ActionResult<null>> {
-  const { userId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId } = auth;
   const supabase = await createClient();
 
   for (const update of updates) {
@@ -318,7 +322,9 @@ export async function reorderSubfunctions(
 export async function reorderCoreActivities(
   updates: { id: string; position: number; subfunction_id?: string }[]
 ): Promise<ActionResult<null>> {
-  const { userId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId } = auth;
   const supabase = await createClient();
 
   for (const update of updates) {
@@ -341,7 +347,9 @@ export async function addSubfunctionAssociation(
   targetType: 'person' | 'role' | 'software',
   targetId: string
 ): Promise<ActionResult<null>> {
-  const { userId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId } = auth;
   const supabase = await createClient();
 
   const tableMap: Record<string, string> = {

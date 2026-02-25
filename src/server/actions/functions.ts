@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContextSafe } from '@/lib/auth';
 import { logActivity } from '@/lib/activity-log';
 import { createFunctionSchema, updateFunctionSchema } from '@/lib/validations';
 import type { ActionResult } from '@/types/actions';
@@ -15,7 +15,9 @@ export async function createFunction(
   const parsed = createFunctionSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -50,7 +52,9 @@ export async function updateFunction(
   const parsed = updateFunctionSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
-  const { userId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId } = auth;
   const supabase = await createClient();
 
   // Fetch old values for activity logging
@@ -91,7 +95,9 @@ export async function updateFunction(
 }
 
 export async function deleteFunction(id: string): Promise<ActionResult<null>> {
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
 
   const { error } = await supabase.from('functions').delete().eq('id', id);
@@ -111,7 +117,8 @@ export async function deleteFunction(id: string): Promise<ActionResult<null>> {
 }
 
 export async function getFunction(id: string): Promise<ActionResult<FunctionRow>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
 
   const { data, error } = await supabase.from('functions').select().eq('id', id).single();
@@ -124,7 +131,8 @@ export async function listFunctions(
   cursor?: string,
   limit: number = 50
 ): Promise<ActionResult<{ items: FunctionRow[]; nextCursor: string | null }>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
 
   let query = supabase

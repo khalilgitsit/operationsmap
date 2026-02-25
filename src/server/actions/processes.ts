@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContextSafe } from '@/lib/auth';
 import { logActivity } from '@/lib/activity-log';
 import { createProcessSchema, updateProcessSchema } from '@/lib/validations';
 import type { ActionResult } from '@/types/actions';
@@ -13,7 +13,9 @@ export async function createProcess(input: unknown): Promise<ActionResult<Proces
   const parsed = createProcessSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -32,7 +34,9 @@ export async function updateProcess(id: string, input: unknown): Promise<ActionR
   const parsed = updateProcessSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
-  const { userId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId } = auth;
   const supabase = await createClient();
 
   const { data: oldData } = await supabase.from('processes').select().eq('id', id).single();
@@ -64,7 +68,9 @@ export async function updateProcess(id: string, input: unknown): Promise<ActionR
 }
 
 export async function deleteProcess(id: string): Promise<ActionResult<null>> {
-  const { userId, organizationId } = await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const { userId, organizationId } = auth;
   const supabase = await createClient();
   const { error } = await supabase.from('processes').delete().eq('id', id);
   if (error) return { success: false, error: error.message };
@@ -73,7 +79,8 @@ export async function deleteProcess(id: string): Promise<ActionResult<null>> {
 }
 
 export async function getProcess(id: string): Promise<ActionResult<ProcessRow>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
   const { data, error } = await supabase.from('processes').select().eq('id', id).single();
   if (error) return { success: false, error: error.message };
@@ -81,7 +88,8 @@ export async function getProcess(id: string): Promise<ActionResult<ProcessRow>> 
 }
 
 export async function listProcesses(cursor?: string, limit: number = 50): Promise<ActionResult<{ items: ProcessRow[]; nextCursor: string | null }>> {
-  await getAuthContext();
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
   let query = supabase.from('processes').select().order('created_at', { ascending: false }).limit(limit + 1);
   if (cursor) query = query.lt('id', cursor);
