@@ -1,5 +1,8 @@
+import type { Metadata } from 'next';
 import { PageHeader } from '@/components/page-header';
 import Link from 'next/link';
+
+export const metadata: Metadata = { title: 'Settings' };
 
 const settingsSections = [
   { label: 'Company Profile', href: '/settings/company', description: 'Manage your organization details' },

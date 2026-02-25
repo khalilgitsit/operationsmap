@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   },
   description: "Operational management platform",
   icons: {
-    icon: '/favicon.ico',
+    icon: '/favicon.svg',
   },
 };
 
