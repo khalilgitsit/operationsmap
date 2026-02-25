@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getAuthContextSafe } from '@/lib/auth';
 import { logActivity } from '@/lib/activity-log';
+import { createNotification } from '@/lib/notifications';
 import type { ActionResult } from '@/types/actions';
 import type { Database } from '@/types/database';
 
@@ -139,15 +140,16 @@ export async function updateRecord(
 
   if (error) return { success: false, error: error.message };
 
-  // Log changes
+  // Log changes and create notifications
   if (oldData) {
     const typedOld = oldData as Record<string, unknown>;
+    const orgId = (data as Record<string, unknown>).organization_id as string;
     for (const [key, value] of Object.entries(updates)) {
       if (JSON.stringify(typedOld[key]) !== JSON.stringify(value)) {
         const action = key === 'status' ? 'status_changed' as const : 'updated' as const;
         await logActivity({
           supabase,
-          organizationId: (data as Record<string, unknown>).organization_id as string,
+          organizationId: orgId,
           recordId: id,
           recordType: objectType as ObjectType,
           action,
@@ -156,6 +158,17 @@ export async function updateRecord(
           oldValue: typedOld[key] as null,
           newValue: value as null,
         });
+
+        // Notify on status change
+        if (key === 'status') {
+          await createNotification({
+            organizationId: orgId,
+            recordId: id,
+            recordType: objectType,
+            message: `Status changed to "${value}" on ${(data as Record<string, unknown>).title || 'a record'}`,
+            excludeUserId: userId,
+          });
+        }
       }
     }
   }
@@ -311,6 +324,16 @@ export async function addComment(
     action: 'comment',
     userId,
     commentText,
+  });
+
+  // Notify record owner about the comment
+  const preview = commentText.length > 60 ? commentText.slice(0, 60) + '...' : commentText;
+  await createNotification({
+    organizationId,
+    recordId,
+    recordType,
+    message: `New comment: "${preview}"`,
+    excludeUserId: userId,
   });
 
   return { success: true, data: null };

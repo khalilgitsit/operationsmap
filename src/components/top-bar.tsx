@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Bell, Settings, LogOut } from 'lucide-react';
+import { Plus, Settings, LogOut } from 'lucide-react';
+import { NotificationBell } from '@/components/notification-bell';
 import { createClient } from '@/lib/supabase/client';
 import { OBJECT_TYPES } from '@/lib/navigation';
 import { getObjectConfig } from '@/lib/object-config';
@@ -84,10 +85,8 @@ export function TopBar({ userEmail }: TopBarProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Notifications (placeholder) */}
-          <Button variant="ghost" size="icon" className="h-9 w-9" disabled>
-            <Bell className="h-4 w-4" />
-          </Button>
+          {/* Notifications */}
+          <NotificationBell />
 
           {/* Ops Coach placeholder slot */}
           <div className="hidden h-9 w-9 sm:block" />

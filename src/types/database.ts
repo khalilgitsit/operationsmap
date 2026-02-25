@@ -567,6 +567,66 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          organization_id: string
+          record_id: string
+          record_type: Database["public"]["Enums"]["object_type"]
+          message: string
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          organization_id: string
+          record_id: string
+          record_type: Database["public"]["Enums"]["object_type"]
+          message: string
+          read?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          organization_id?: string
+          record_id?: string
+          record_type?: Database["public"]["Enums"]["object_type"]
+          message?: string
+          read?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      org_settings: {
+        Row: {
+          id: string
+          organization_id: string
+          setting_key: string
+          setting_value: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          organization_id: string
+          setting_key: string
+          setting_value?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          organization_id?: string
+          setting_key?: string
+          setting_value?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           biggest_pains: string | null
