@@ -36,6 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
 import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Send, Trash2, X } from 'lucide-react';
 import {
   type ObjectConfig,
@@ -565,6 +566,8 @@ function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
     description = `Added association (${fieldName})`;
   } else if (action === 'association_removed') {
     description = `Removed association (${fieldName})`;
+  } else if (action === 'comment') {
+    description = (activity.comment_text as string) || (activity.new_value as string) || 'Comment';
   } else if (fieldName === '_comment') {
     description = activity.new_value as string;
   } else if (fieldName === '_deleted') {
@@ -648,8 +651,18 @@ function AssociationSection({
         <button className="flex items-center gap-1 text-sm font-medium hover:text-primary" onClick={onToggle}>
           {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           {assoc.label}
-          <span className="text-xs text-muted-foreground ml-1">({items.length})</span>
         </button>
+        {items.length > 0 && targetConfig ? (
+          <Link
+            href={targetConfig.listHref}
+            className="text-xs text-primary hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {items.length}
+          </Link>
+        ) : (
+          <span className="text-xs text-muted-foreground">{items.length}</span>
+        )}
         {assoc.junctionTable !== '_children' && (
           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setAdding(!adding)}>
             <Plus className="h-3.5 w-3.5" />

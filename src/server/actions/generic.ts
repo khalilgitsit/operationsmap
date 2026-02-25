@@ -296,10 +296,9 @@ export async function addComment(
     organizationId,
     recordId,
     recordType: recordType as ObjectType,
-    action: 'updated',
+    action: 'comment',
     userId,
-    fieldName: '_comment',
-    newValue: commentText,
+    commentText,
   });
 
   return { success: true, data: null };
