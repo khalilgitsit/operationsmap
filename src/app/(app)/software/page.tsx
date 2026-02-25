@@ -1,10 +1,6 @@
-import { PageHeader } from '@/components/page-header';
+import { ListPage } from '@/components/list-page';
+import { getObjectConfig } from '@/lib/object-config';
 
 export default function SoftwarePage() {
-  return (
-    <div>
-      <PageHeader title="Software" />
-      <p className="text-muted-foreground">Software list will be built in a later phase.</p>
-    </div>
-  );
+  return <ListPage config={getObjectConfig('software')} />;
 }

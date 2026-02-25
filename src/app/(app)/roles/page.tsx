@@ -1,10 +1,6 @@
-import { PageHeader } from '@/components/page-header';
+import { ListPage } from '@/components/list-page';
+import { getObjectConfig } from '@/lib/object-config';
 
 export default function RolesPage() {
-  return (
-    <div>
-      <PageHeader title="Roles" />
-      <p className="text-muted-foreground">Roles list will be built in a later phase.</p>
-    </div>
-  );
+  return <ListPage config={getObjectConfig('role')} />;
 }
