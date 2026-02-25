@@ -1631,6 +1631,7 @@ export type Database = {
       activity_action:
         | "created"
         | "updated"
+        | "deleted"
         | "status_changed"
         | "association_added"
         | "association_removed"
@@ -1797,6 +1798,7 @@ export const Constants = {
       activity_action: [
         "created",
         "updated",
+        "deleted",
         "status_changed",
         "association_added",
         "association_removed",

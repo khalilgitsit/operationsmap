@@ -217,9 +217,8 @@ export async function deleteRecord(
     organizationId,
     recordId: id,
     recordType: objectType as ObjectType,
-    action: 'updated',
+    action: 'deleted',
     userId,
-    fieldName: '_deleted',
   });
 
   return { success: true, data: null };

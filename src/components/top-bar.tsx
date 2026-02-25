@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Bell, Settings, LogOut } from 'lucide-react';
+import { Plus, Bell, Settings, LogOut } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { OBJECT_TYPES } from '@/lib/navigation';
 import { getObjectConfig } from '@/lib/object-config';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { GlobalSearch } from '@/components/global-search';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { QuickCreatePanel } from '@/components/quick-create-panel';
 import {
@@ -52,15 +52,8 @@ export function TopBar({ userEmail }: TopBarProps) {
           <span className="hidden sm:inline">Ops Map</span>
         </Link>
 
-        {/* Search (placeholder) */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search..."
-            className="pl-9 h-9"
-            disabled
-          />
-        </div>
+        {/* Global Search */}
+        <GlobalSearch />
 
         <div className="flex items-center gap-1">
           {/* Create New */}
