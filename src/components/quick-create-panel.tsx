@@ -67,20 +67,24 @@ export function QuickCreatePanel({
     if (!validate()) return;
 
     startTransition(async () => {
-      const result = await createRecord(config.type, formData);
-      if (!result.success) {
-        setErrors({ _form: result.error });
-        return;
-      }
+      try {
+        const result = await createRecord(config.type, formData);
+        if (!result.success) {
+          setErrors({ _form: result.error });
+          return;
+        }
 
-      onCreated?.(result.data);
+        onCreated?.(result.data);
 
-      if (addAnother) {
-        resetForm();
-      } else {
-        onOpenChange(false);
-        resetForm();
-        router.push(config.recordHref(result.data.id as string));
+        if (addAnother) {
+          resetForm();
+        } else {
+          onOpenChange(false);
+          resetForm();
+          router.push(config.recordHref(result.data.id as string));
+        }
+      } catch (err) {
+        setErrors({ _form: err instanceof Error ? err.message : 'An unexpected error occurred' });
       }
     });
   };

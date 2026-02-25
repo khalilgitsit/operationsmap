@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -66,22 +66,27 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
   const [editValue, setEditValue] = useState<unknown>(null);
   const [referenceLabels, setReferenceLabels] = useState<Record<string, Record<string, string>>>({});
 
-  const searchFields = config.columns
-    .filter((c) => c.type === 'text' || c.type === 'email')
-    .map((c) => c.key);
+  const searchFields = useMemo(
+    () => config.columns.filter((c) => c.type === 'text' || c.type === 'email').map((c) => c.key),
+    [config.columns]
+  );
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const result = await listRecords(config.type, {
-      sortField: sort.field,
-      sortDirection: sort.direction,
-      filters,
-      search,
-      searchFields,
-    });
-    if (result.success) {
-      setData(result.data.items);
-      setTotalCount(result.data.totalCount);
+    try {
+      const result = await listRecords(config.type, {
+        sortField: sort.field,
+        sortDirection: sort.direction,
+        filters,
+        search,
+        searchFields,
+      });
+      if (result.success) {
+        setData(result.data.items);
+        setTotalCount(result.data.totalCount);
+      }
+    } catch {
+      // Server action failed — show empty state rather than infinite skeletons
     }
     setLoading(false);
   }, [config.type, sort, filters, search, searchFields]);
@@ -411,11 +416,13 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
       </div>
 
       {/* Count */}
-      <div className="text-sm text-muted-foreground">
-        {activeFilterCount > 0
-          ? `${filteredCount} of ${totalCount} ${config.labelPlural}`
-          : `${totalCount} ${config.labelPlural}`}
-      </div>
+      {!loading && (
+        <div className="text-sm text-muted-foreground">
+          {activeFilterCount > 0
+            ? `${filteredCount} of ${totalCount} ${config.labelPlural}`
+            : `${totalCount} ${config.labelPlural}`}
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-md border">
