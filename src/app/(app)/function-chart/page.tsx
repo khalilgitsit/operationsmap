@@ -49,7 +49,16 @@ import {
   type FunctionChartFunction,
   type FunctionChartSubfunction,
 } from '@/server/actions/function-chart';
-import { Plus, GripVertical, Users, Monitor, Shield, Tag } from 'lucide-react';
+import { Plus, GripVertical, Users, Monitor, Shield, Tag, Download, Copy, FileDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
+import { getFunctionChartExportData } from '@/server/actions/export';
+import { exportFunctionChart, downloadMarkdown, copyToClipboard } from '@/lib/markdown-export';
 
 type SortMode = 'custom' | 'az' | 'za';
 
@@ -192,6 +201,50 @@ export default function FunctionChartPage() {
               icon={<Shield className="h-4 w-4" />}
               label="Roles"
             />
+          </div>
+
+          <div className="ml-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    startTransition(async () => {
+                      const result = await getFunctionChartExportData();
+                      if (result.success) {
+                        const md = exportFunctionChart(result.data);
+                        downloadMarkdown(md, 'function-chart.md');
+                        toast.success('Downloaded as markdown');
+                      }
+                    });
+                  }}
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Download as .md
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    startTransition(async () => {
+                      const result = await getFunctionChartExportData();
+                      if (result.success) {
+                        const md = exportFunctionChart(result.data);
+                        const ok = await copyToClipboard(md);
+                        if (ok) toast.success('Copied to clipboard');
+                        else toast.error('Failed to copy');
+                      }
+                    });
+                  }}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy to Clipboard
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

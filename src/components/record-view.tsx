@@ -39,7 +39,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, Download, MoreHorizontal, Plus, Send, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Send, Trash2, X } from 'lucide-react';
+import { ExportButton } from '@/components/export-button';
 import {
   type ObjectConfig,
   type AssociationConfig,
@@ -603,10 +604,7 @@ function RecordTitleBar({
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <Button variant="outline" size="sm" disabled>
-          <Download className="h-3.5 w-3.5 mr-1" />
-          Export
-        </Button>
+        <ExportButton config={config} recordId={record.id as string} record={record} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
