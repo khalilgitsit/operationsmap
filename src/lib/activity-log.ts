@@ -29,7 +29,7 @@ export async function logActivity({
   newValue,
   commentText,
 }: LogActivityParams) {
-  await supabase.from('activity_log').insert({
+  const { error } = await supabase.from('activity_log').insert({
     organization_id: organizationId,
     record_id: recordId,
     record_type: recordType,
@@ -40,4 +40,5 @@ export async function logActivity({
     comment_text: commentText ?? null,
     user_id: userId,
   });
+  if (error) throw error;
 }

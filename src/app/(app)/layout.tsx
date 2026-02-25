@@ -1,8 +1,16 @@
+import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { TopBar } from '@/components/top-bar';
 import { Sidebar } from '@/components/sidebar';
+
+const TopBar = dynamic(
+  () => import('@/components/top-bar').then((m) => ({ default: m.TopBar })),
+  {
+    ssr: false,
+    loading: () => <div className="h-14 shrink-0 border-b bg-background" />,
+  }
+);
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();

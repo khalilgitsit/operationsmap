@@ -30,7 +30,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
@@ -160,8 +159,13 @@ export function RecordView({ config, recordId }: RecordViewProps) {
     const text = commentText;
     setCommentText('');
     startTransition(async () => {
-      await addComment(recordId, config.type, text);
-      fetchActivities();
+      const result = await addComment(recordId, config.type, text);
+      if (result.success) {
+        fetchActivities();
+      } else {
+        setCommentText(text);
+        toast.error(result.error || 'Failed to add comment');
+      }
     });
   };
 
@@ -628,36 +632,34 @@ function RecordTitleBar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <AlertDialog open={deleteDialogOpen} onOpenChange={onSetDeleteDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete {config.label}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete &ldquo;{title}&rdquo;? This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-white hover:bg-destructive/90"
-                    onClick={onDelete}
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onSelect={() => onSetDeleteDialogOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <AlertDialog open={deleteDialogOpen} onOpenChange={onSetDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {config.label}</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete &ldquo;{title}&rdquo;? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-white hover:bg-destructive/90"
+                onClick={onDelete}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

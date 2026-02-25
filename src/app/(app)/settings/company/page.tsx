@@ -157,7 +157,7 @@ export default function CompanyProfilePage() {
         <div className="space-y-2">
           <Label>Employee Count</Label>
           <div className="flex h-10 items-center rounded-md border bg-muted/50 px-3 text-sm">
-            {profile?.employeeCount ?? 0} people
+            {profile?.employeeCount ?? 0} {(profile?.employeeCount ?? 0) === 1 ? 'person' : 'people'}
           </div>
           <p className="text-xs text-muted-foreground">Auto-calculated from People records</p>
         </div>

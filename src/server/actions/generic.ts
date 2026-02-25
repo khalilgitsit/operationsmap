@@ -316,15 +316,19 @@ export async function addComment(
   const { userId, organizationId } = auth;
   const supabase = await createClient();
 
-  await logActivity({
-    supabase,
-    organizationId,
-    recordId,
-    recordType: recordType as ObjectType,
-    action: 'comment',
-    userId,
-    commentText,
-  });
+  try {
+    await logActivity({
+      supabase,
+      organizationId,
+      recordId,
+      recordType: recordType as ObjectType,
+      action: 'comment',
+      userId,
+      commentText,
+    });
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to save comment' };
+  }
 
   // Notify record owner about the comment
   const preview = commentText.length > 60 ? commentText.slice(0, 60) + '...' : commentText;

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -30,7 +31,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { ReferenceCombobox } from '@/components/reference-combobox';
 import { ArrowUpDown, ArrowUp, ArrowDown, Plus, Search, Columns3, X } from 'lucide-react';
 import { type ColumnConfig, type ObjectConfig, getRecordTitle } from '@/lib/object-config';
-import { listRecords, updateRecord } from '@/server/actions/generic';
+import { listRecords, updateRecord, searchRecords } from '@/server/actions/generic';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -102,6 +103,44 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
     }, search ? 300 : 0);
     return () => clearTimeout(timer);
   }, [fetchData, search]);
+
+  // Pre-fetch reference labels for displayed data
+  const refColumns = useMemo(
+    () => config.columns.filter((c) => c.type === 'reference' && c.referenceType),
+    [config.columns]
+  );
+
+  useEffect(() => {
+    if (data.length === 0 || refColumns.length === 0) return;
+
+    for (const col of refColumns) {
+      const ids = [...new Set(
+        data.map((row) => row[col.key]).filter((v): v is string => typeof v === 'string')
+      )];
+      if (ids.length === 0) continue;
+      // Skip IDs we already have labels for
+      const missing = ids.filter((id) => !referenceLabels[col.key]?.[id]);
+      if (missing.length === 0) continue;
+
+      // Fetch labels via searchRecords (returns {id, label} pairs)
+      searchRecords(col.referenceType!, '', 100).then((result) => {
+        if (result.success) {
+          const labelMap: Record<string, string> = {};
+          for (const item of result.data) {
+            if (ids.includes(item.id)) {
+              labelMap[item.id] = item.label;
+            }
+          }
+          if (Object.keys(labelMap).length > 0) {
+            setReferenceLabels((prev) => ({
+              ...prev,
+              [col.key]: { ...prev[col.key], ...labelMap },
+            }));
+          }
+        }
+      });
+    }
+  }, [data, refColumns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSort = (field: string) => {
     setSort((prev) => ({
@@ -501,8 +540,26 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
                   className={cn('cursor-pointer hover:bg-muted/50', isPending && 'opacity-50')}
                   onClick={() => handleRowClick(row)}
                 >
-                  {displayColumns.map((col) => (
-                    <TableCell key={col.key}>{renderCellContent(col, row)}</TableCell>
+                  {displayColumns.map((col, colIndex) => (
+                    <TableCell key={col.key}>
+                      {colIndex === 0 ? (
+                        <Link
+                          href={config.recordHref(row.id as string)}
+                          className="hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onRowClick) {
+                              e.preventDefault();
+                              onRowClick(row);
+                            }
+                          }}
+                        >
+                          {renderCellContent(col, row)}
+                        </Link>
+                      ) : (
+                        renderCellContent(col, row)
+                      )}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))
