@@ -12,6 +12,8 @@ import { StatusBadge } from '@/components/status-badge';
 import { ReferenceCombobox } from '@/components/reference-combobox';
 import { PreviewPanel } from '@/components/preview-panel';
 import { QuickCreatePanel } from '@/components/quick-create-panel';
+import { VideoEmbed } from '@/components/video-embed';
+import { CustomProperties } from '@/components/custom-properties';
 import {
   Select,
   SelectContent,
@@ -37,7 +39,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Send, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, MoreHorizontal, Plus, Send, Trash2, X } from 'lucide-react';
 import {
   type ObjectConfig,
   type AssociationConfig,
@@ -218,89 +220,21 @@ export function RecordView({ config, recordId }: RecordViewProps) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px_280px] gap-6">
         {/* Left Column — Properties */}
         <div className="space-y-1">
-          {/* Title */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              {editingField === '_title' ? (
-                config.titleFields ? (
-                  <div className="flex gap-2">
-                    {config.titleFields.map((tf) => (
-                      <Input
-                        key={tf}
-                        autoFocus={tf === config.titleFields![0]}
-                        className="text-xl font-bold"
-                        defaultValue={(record[tf] as string) || ''}
-                        onBlur={(e) => {
-                          handleFieldSave(tf, e.target.value);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleFieldSave(tf, (e.target as HTMLInputElement).value);
-                          if (e.key === 'Escape') setEditingField(null);
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Input
-                    autoFocus
-                    className="text-xl font-bold"
-                    defaultValue={(record[config.titleField] as string) || ''}
-                    onBlur={(e) => handleFieldSave(config.titleField, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleFieldSave(config.titleField, (e.target as HTMLInputElement).value);
-                      if (e.key === 'Escape') setEditingField(null);
-                    }}
-                  />
-                )
-              ) : (
-                <h1
-                  className="text-xl font-bold cursor-pointer hover:text-primary/80"
-                  onClick={() => setEditingField('_title')}
-                >
-                  {getRecordTitle(record, config)}
-                </h1>
-              )}
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete {config.label}?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete &quot;{getRecordTitle(record, config)}&quot;. This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <RecordTitleBar
+            record={record}
+            config={config}
+            editingField={editingField}
+            deleteDialogOpen={deleteDialogOpen}
+            onSetEditingField={setEditingField}
+            onFieldSave={handleFieldSave}
+            onSetDeleteDialogOpen={setDeleteDialogOpen}
+            onDelete={handleDelete}
+          />
 
           {/* Fields */}
           <div className="space-y-3">
             {config.columns
-              .filter((col) => col.key !== config.titleField && !config.titleFields?.includes(col.key))
+              .filter((col): col is typeof col => col.key !== config.titleField && !(config.titleFields ?? []).includes(col.key))
               .map((col) => {
                 const value = record[col.key];
                 const isEditing = editingField === col.key;
@@ -313,7 +247,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                         <EditableField
                           col={col}
                           value={value}
-                          onSave={(v) => handleFieldSave(col.key, v)}
+                          onSave={(v: unknown) => handleFieldSave(col.key, v)}
                           onCancel={() => setEditingField(null)}
                           config={config}
                         />
@@ -333,6 +267,19 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                 );
               })}
           </div>
+
+          {/* Video embed for core_activity */}
+          {config.type === 'core_activity' && !!record.video_url && (
+            <div className="mt-4">
+              <span className="text-sm text-muted-foreground">Video</span>
+              <div className="mt-1">
+                <VideoEmbed url={record.video_url as string} />
+              </div>
+            </div>
+          )}
+
+          {/* Custom Properties */}
+          <CustomProperties recordId={recordId} objectType={config.type} />
         </div>
 
         {/* Middle Column — Activity Feed */}
@@ -522,7 +469,7 @@ function EditableField({
   }
 }
 
-function renderFieldValue(col: { key: string; type: string }, value: unknown, config: ObjectConfig) {
+function renderFieldValue(col: { key: string; type: string }, value: unknown, config: ObjectConfig): React.ReactNode {
   if (col.type === 'select' && col.key === config.statusField) {
     return <StatusBadge status={(value as string) || ''} />;
   }
@@ -607,6 +554,99 @@ function formatRelativeTime(dateStr: string): string {
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
   return date.toLocaleDateString();
+}
+
+function RecordTitleBar({
+  record,
+  config,
+  editingField,
+  deleteDialogOpen,
+  onSetEditingField,
+  onFieldSave,
+  onSetDeleteDialogOpen,
+  onDelete,
+}: {
+  record: Record<string, unknown>;
+  config: ObjectConfig;
+  editingField: string | null;
+  deleteDialogOpen: boolean;
+  onSetEditingField: (field: string | null) => void;
+  onFieldSave: (field: string, value: unknown) => void;
+  onSetDeleteDialogOpen: (open: boolean) => void;
+  onDelete: () => void;
+}) {
+  const title = getRecordTitle(record, config);
+  const titleField = config.titleField;
+  const isEditingTitle = editingField === titleField;
+
+  return (
+    <div className="flex items-start justify-between gap-4 mb-4">
+      <div className="flex-1 min-w-0">
+        {isEditingTitle ? (
+          <Input
+            autoFocus
+            className="text-xl font-semibold h-auto py-1"
+            defaultValue={title}
+            onBlur={(e) => onFieldSave(titleField, e.target.value || null)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onFieldSave(titleField, (e.target as HTMLInputElement).value || null);
+              if (e.key === 'Escape') onSetEditingField(null);
+            }}
+          />
+        ) : (
+          <h1
+            className="text-xl font-semibold cursor-pointer hover:text-primary transition-colors"
+            onClick={() => onSetEditingField(titleField)}
+          >
+            {title || 'Untitled'}
+          </h1>
+        )}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button variant="outline" size="sm" disabled>
+          <Download className="h-3.5 w-3.5 mr-1" />
+          Export
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <AlertDialog open={deleteDialogOpen} onOpenChange={onSetDeleteDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {config.label}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete &ldquo;{title}&rdquo;? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                    onClick={onDelete}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
 }
 
 function AssociationSection({
