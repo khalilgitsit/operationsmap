@@ -14,8 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ops Map",
+  title: {
+    default: "Ops Map",
+    template: "%s | Ops Map",
+  },
   description: "Operational management platform",
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

@@ -21,8 +21,26 @@ import {
 } from '@/components/ui/tooltip';
 import { ReferenceCombobox } from '@/components/reference-combobox';
 import { Info } from 'lucide-react';
+import { toast } from 'sonner';
 import { type ObjectConfig } from '@/lib/object-config';
 import { createRecord } from '@/server/actions/generic';
+
+const ACTION_VERBS = [
+  'accept', 'add', 'adjust', 'administer', 'allocate', 'analyze', 'apply', 'approve', 'arrange', 'assess', 'assign', 'audit',
+  'build', 'calculate', 'check', 'clean', 'close', 'collect', 'communicate', 'compare', 'compile', 'complete', 'conduct',
+  'configure', 'confirm', 'connect', 'consolidate', 'coordinate', 'create', 'customize',
+  'define', 'deliver', 'deploy', 'design', 'detect', 'develop', 'distribute', 'document', 'download', 'draft',
+  'edit', 'email', 'enable', 'enter', 'escalate', 'establish', 'evaluate', 'examine', 'execute', 'export', 'extract',
+  'file', 'fill', 'finalize', 'follow', 'format', 'forward', 'generate', 'grant', 'handle',
+  'identify', 'implement', 'import', 'inform', 'initiate', 'input', 'inspect', 'install', 'integrate', 'interview', 'investigate', 'issue',
+  'launch', 'lead', 'load', 'log', 'maintain', 'manage', 'map', 'measure', 'merge', 'migrate', 'modify', 'monitor',
+  'negotiate', 'notify', 'obtain', 'onboard', 'open', 'operate', 'optimize', 'order', 'organize', 'outline',
+  'pack', 'perform', 'plan', 'post', 'prepare', 'present', 'print', 'prioritize', 'process', 'produce', 'provide', 'publish', 'purchase',
+  'receive', 'recommend', 'reconcile', 'record', 'recruit', 'reduce', 'register', 'release', 'remove', 'renew', 'report',
+  'request', 'research', 'resolve', 'respond', 'restore', 'review', 'revise', 'route', 'run',
+  'save', 'scan', 'schedule', 'screen', 'secure', 'select', 'send', 'set', 'ship', 'sign', 'sort', 'source', 'submit', 'summarize', 'support',
+  'test', 'track', 'train', 'transfer', 'translate', 'troubleshoot', 'update', 'upgrade', 'upload', 'validate', 'verify', 'write',
+];
 
 interface QuickCreatePanelProps {
   open: boolean;
@@ -59,6 +77,13 @@ export function QuickCreatePanel({
         newErrors[field.key] = `${field.label} is required`;
       }
     }
+    // Core Activity title must start with action verb
+    if (config.type === 'core_activity' && formData.title) {
+      const firstWord = String(formData.title).trim().split(/\s+/)[0]?.toLowerCase();
+      if (firstWord && !ACTION_VERBS.includes(firstWord)) {
+        newErrors.title = 'Title must start with an action verb (e.g., "Review", "Process", "Send")';
+      }
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -71,9 +96,11 @@ export function QuickCreatePanel({
         const result = await createRecord(config.type, formData);
         if (!result.success) {
           setErrors({ _form: result.error });
+          toast.error(`Failed to create ${config.label}: ${result.error}`);
           return;
         }
 
+        toast.success(`${config.label} created`);
         onCreated?.(result.data);
 
         if (addAnother) {
@@ -84,7 +111,9 @@ export function QuickCreatePanel({
           router.push(config.recordHref(result.data.id as string));
         }
       } catch (err) {
-        setErrors({ _form: err instanceof Error ? err.message : 'An unexpected error occurred' });
+        const msg = err instanceof Error ? err.message : 'An unexpected error occurred';
+        setErrors({ _form: msg });
+        toast.error(msg);
       }
     });
   };

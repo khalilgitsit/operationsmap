@@ -31,6 +31,7 @@ import { ReferenceCombobox } from '@/components/reference-combobox';
 import { ArrowUpDown, ArrowUp, ArrowDown, Plus, Search, Columns3, X } from 'lucide-react';
 import { type ColumnConfig, type ObjectConfig, getRecordTitle } from '@/lib/object-config';
 import { listRecords, updateRecord } from '@/server/actions/generic';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface DataTableProps {
@@ -116,6 +117,8 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
         setData((prev) =>
           prev.map((row) => (row.id === rowId ? { ...row, [colKey]: value } : row))
         );
+      } else {
+        toast.error(result.error);
       }
       setEditingCell(null);
     });

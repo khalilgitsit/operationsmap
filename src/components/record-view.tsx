@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Send, Trash2, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { ExportButton } from '@/components/export-button';
 import {
   type ObjectConfig,
@@ -120,11 +121,23 @@ export function RecordView({ config, recordId }: RecordViewProps) {
   }, [fetchRecord, fetchActivities, fetchAssociations]);
 
   const handleFieldSave = (field: string, value: unknown) => {
+    // Core Activity status validation: cannot be Active without subfunction
+    if (config.type === 'core_activity' && field === 'status' && value === 'Active') {
+      if (!record?.subfunction_id) {
+        toast.error('Cannot set status to Active without a primary Subfunction');
+        setEditingField(null);
+        return;
+      }
+    }
+
     startTransition(async () => {
       const result = await updateRecord(config.type, recordId, { [field]: value });
       if (result.success) {
         setRecord(result.data);
         fetchActivities();
+        toast.success('Saved');
+      } else {
+        toast.error(result.error);
       }
       setEditingField(null);
     });
@@ -134,7 +147,10 @@ export function RecordView({ config, recordId }: RecordViewProps) {
     startTransition(async () => {
       const result = await deleteRecord(config.type, recordId);
       if (result.success) {
+        toast.success(`${config.label} deleted`);
         router.push(config.listHref);
+      } else {
+        toast.error(result.error);
       }
     });
   };
