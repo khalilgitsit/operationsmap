@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { getAuthContextSafe, getAuthContext, AuthError } from '@/lib/auth';
+import { getAuthContextSafe } from '@/lib/auth';
 import { logActivity } from '@/lib/activity-log';
 import type { ActionResult } from '@/types/actions';
 import type { Database } from '@/types/database';
@@ -36,15 +36,8 @@ export async function listRecords(
     searchFields?: string[];
   } = {}
 ): Promise<ActionResult<{ items: Record<string, unknown>[]; nextCursor: string | null; totalCount: number }>> {
-  let auth;
-  try {
-    auth = await getAuthContext();
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return { success: false, error: `Auth failed: ${e.message}` };
-    }
-    return { success: false, error: `Auth error: ${e instanceof Error ? e.message : String(e)}` };
-  }
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
   const table = TABLE_MAP[objectType];
   if (!table) return { success: false, error: `Unknown object type: ${objectType}` };
@@ -174,15 +167,8 @@ export async function createRecord(
   objectType: string,
   input: Record<string, unknown>
 ): Promise<ActionResult<Record<string, unknown>>> {
-  let auth;
-  try {
-    auth = await getAuthContext();
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return { success: false, error: `Auth failed: ${e.message}` };
-    }
-    return { success: false, error: `Auth error: ${e instanceof Error ? e.message : String(e)}` };
-  }
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
   const { userId, organizationId } = auth;
   const supabase = await createClient();
   const table = TABLE_MAP[objectType];
