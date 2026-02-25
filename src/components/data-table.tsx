@@ -65,6 +65,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
   const [editingCell, setEditingCell] = useState<{ rowId: string; colKey: string } | null>(null);
   const [editValue, setEditValue] = useState<unknown>(null);
   const [referenceLabels, setReferenceLabels] = useState<Record<string, Record<string, string>>>({});
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const searchFields = useMemo(
     () => config.columns.filter((c) => c.type === 'text' || c.type === 'email').map((c) => c.key),
@@ -73,6 +74,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const result = await listRecords(config.type, {
         sortField: sort.field,
@@ -84,6 +86,8 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
       if (result.success) {
         setData(result.data.items);
         setTotalCount(result.data.totalCount);
+      } else {
+        setFetchError(result.error);
       }
     } catch {
       // Server action failed — show empty state rather than infinite skeletons
@@ -457,6 +461,17 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
                   ))}
                 </TableRow>
               ))
+            ) : fetchError ? (
+              <TableRow>
+                <TableCell colSpan={displayColumns.length} className="h-32 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-destructive text-sm">{fetchError}</p>
+                    <Button size="sm" variant="outline" onClick={fetchData}>
+                      Retry
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={displayColumns.length} className="h-32 text-center">

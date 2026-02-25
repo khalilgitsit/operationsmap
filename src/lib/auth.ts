@@ -53,7 +53,10 @@ export async function getAuthContextSafe(): Promise<AuthContext | null> {
   try {
     return await getAuthContext();
   } catch (e) {
-    if (e instanceof AuthError) return null;
+    if (e instanceof AuthError) {
+      console.error('[auth] getAuthContextSafe failed:', e.message);
+      return null;
+    }
     throw e;
   }
 }
