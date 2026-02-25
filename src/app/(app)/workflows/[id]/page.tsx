@@ -1092,6 +1092,11 @@ function AddProcessForm({
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && title.trim()) onCreateNew(title.trim());
+              if (e.key === 'Tab') {
+                e.preventDefault();
+                if (title.trim()) onCreateNew(title.trim());
+                onCancel();
+              }
               if (e.key === 'Escape') onCancel();
             }}
             className="h-8 text-sm"
@@ -1184,6 +1189,11 @@ function AddCoreActivityForm({
             if (e.key === 'Enter' && title.trim()) {
               onCreateNew(title.trim());
               setTitle(''); // Clear for next item
+            }
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              if (title.trim()) onCreateNew(title.trim());
+              onCancel(); // Close form and move on
             }
             if (e.key === 'Escape') onCancel();
           }}
