@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -107,6 +107,7 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
             <SheetTitle className="text-lg">
               {record ? getRecordTitle(record, config) : 'Loading...'}
             </SheetTitle>
+            <SheetDescription className="sr-only">{config.label} details</SheetDescription>
           </div>
           <Button
             variant="ghost"

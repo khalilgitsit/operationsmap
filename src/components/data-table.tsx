@@ -244,7 +244,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
               }
             }}
           >
-            {label || refId.slice(0, 8) + '...'}
+            {label || <span className="text-muted-foreground italic">Loading…</span>}
           </span>
         );
       }
@@ -408,7 +408,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
               value={filters[col.key] || '_all'}
               onValueChange={(v) => setFilter(col.key, v === '_all' ? '' : v)}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-auto min-w-[150px]">
                 <SelectValue placeholder={col.label} />
               </SelectTrigger>
               <SelectContent>
@@ -538,7 +538,15 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
                 <TableRow
                   key={row.id as string}
                   className={cn('cursor-pointer hover:bg-muted/50', isPending && 'opacity-50')}
+                  role="link"
+                  tabIndex={0}
                   onClick={() => handleRowClick(row)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleRowClick(row);
+                    }
+                  }}
                 >
                   {displayColumns.map((col, colIndex) => (
                     <TableCell key={col.key}>

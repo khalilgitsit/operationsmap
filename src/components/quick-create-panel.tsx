@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -214,6 +214,7 @@ export function QuickCreatePanel({
       <SheetContent className="w-[400px] sm:w-[450px] flex flex-col p-0">
         <SheetHeader className="px-6 pt-6 pb-2">
           <SheetTitle>Create {config.label}</SheetTitle>
+          <SheetDescription className="sr-only">Fill in the details to create a new {config.label.toLowerCase()}</SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
