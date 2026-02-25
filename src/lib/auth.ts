@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export interface AuthContext {
   userId: string;
@@ -28,7 +28,11 @@ export async function getAuthContext(): Promise<AuthContext> {
     throw new AuthError('Not authenticated');
   }
 
-  const { data: userOrg } = await supabase
+  // Use the service role client for the org lookup to bypass RLS.
+  // The user's JWT may have been refreshed by getUser() but the new token
+  // may not be available for PostgREST queries in the same request cycle.
+  const serviceClient = await createServiceClient();
+  const { data: userOrg } = await serviceClient
     .from('user_organizations')
     .select('organization_id')
     .eq('user_id', user.id)
