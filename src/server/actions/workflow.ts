@@ -823,3 +823,249 @@ export async function listWorkflows(): Promise<
     })),
   };
 }
+
+// --- Workflow context helpers for numbering ---
+
+export interface ProcessWorkflowContext {
+  workflowId: string;
+  workflowTitle: string;
+  phasePosition: number;
+  processPosition: number;
+  coreActivities: {
+    id: string;
+    title: string;
+    status: string;
+    position: number;
+    number: string; // e.g. "1.1.1"
+  }[];
+}
+
+/**
+ * Get workflow context for a process — its phase/process numbering and ordered CAs.
+ * Returns null if the process is not part of any workflow.
+ */
+export async function getProcessWorkflowContext(
+  processId: string
+): Promise<ActionResult<ProcessWorkflowContext | null>> {
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const supabase = await createClient();
+
+  // Find which phase(s) this process belongs to via workflow_phase_processes
+  const { data: phaseLinks, error: plError } = await supabase
+    .from('workflow_phase_processes')
+    .select('phase_id, position')
+    .eq('process_id', processId)
+    .limit(1);
+
+  if (plError) return { success: false, error: plError.message };
+  if (!phaseLinks?.length) return { success: true, data: null };
+
+  const phaseLink = phaseLinks[0];
+
+  // Get the phase and its workflow
+  const { data: phase, error: phError } = await supabase
+    .from('workflow_phases')
+    .select('id, workflow_id, position')
+    .eq('id', phaseLink.phase_id)
+    .single();
+
+  if (phError) return { success: false, error: phError.message };
+
+  // Get the workflow title
+  const { data: workflow, error: wfError } = await supabase
+    .from('workflows')
+    .select('id, title')
+    .eq('id', phase.workflow_id)
+    .single();
+
+  if (wfError) return { success: false, error: wfError.message };
+
+  // Get core activities for this process, ordered by position
+  const { data: processCAs, error: pcaError } = await supabase
+    .from('process_core_activities')
+    .select('core_activity_id, position')
+    .eq('process_id', processId)
+    .order('position', { ascending: true });
+
+  if (pcaError) return { success: false, error: pcaError.message };
+
+  const caIds = (processCAs || []).map((pca) => pca.core_activity_id);
+  let caMap = new Map<string, { id: string; title: string; status: string }>();
+
+  if (caIds.length) {
+    const { data: cas } = await supabase
+      .from('core_activities')
+      .select('id, title, status')
+      .in('id', caIds);
+    if (cas) {
+      caMap = new Map(cas.map((ca) => [ca.id, ca]));
+    }
+  }
+
+  const phaseNum = phase.position + 1;
+  const processNum = phaseLink.position + 1;
+
+  const coreActivities = (processCAs || []).map((pca, idx) => {
+    const ca = caMap.get(pca.core_activity_id);
+    return {
+      id: pca.core_activity_id,
+      title: ca?.title || 'Untitled',
+      status: ca?.status || 'Draft',
+      position: pca.position,
+      number: `${phaseNum}.${processNum}.${idx + 1}`,
+    };
+  });
+
+  return {
+    success: true,
+    data: {
+      workflowId: workflow.id,
+      workflowTitle: workflow.title,
+      phasePosition: phase.position,
+      processPosition: phaseLink.position,
+      coreActivities,
+    },
+  };
+}
+
+export interface CoreActivityWorkflowContext {
+  workflowId: string;
+  workflowTitle: string;
+  processId: string;
+  processTitle: string;
+  number: string; // e.g. "1.1.3"
+}
+
+/**
+ * Get workflow context for a core activity — its positional number within a workflow.
+ * Returns null if the CA is not part of any workflow.
+ */
+export async function getCoreActivityWorkflowContext(
+  coreActivityId: string
+): Promise<ActionResult<CoreActivityWorkflowContext | null>> {
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const supabase = await createClient();
+
+  // Find which process(es) this CA belongs to
+  const { data: processLinks, error: plError } = await supabase
+    .from('process_core_activities')
+    .select('process_id, position')
+    .eq('core_activity_id', coreActivityId)
+    .limit(1);
+
+  if (plError) return { success: false, error: plError.message };
+  if (!processLinks?.length) return { success: true, data: null };
+
+  const processLink = processLinks[0];
+
+  // Get the process title
+  const { data: process, error: procError } = await supabase
+    .from('processes')
+    .select('id, title')
+    .eq('id', processLink.process_id)
+    .single();
+
+  if (procError) return { success: false, error: procError.message };
+
+  // Get the CA's position index (count CAs before it)
+  const { data: allCAs } = await supabase
+    .from('process_core_activities')
+    .select('core_activity_id, position')
+    .eq('process_id', processLink.process_id)
+    .order('position', { ascending: true });
+
+  const caIndex = (allCAs || []).findIndex((ca) => ca.core_activity_id === coreActivityId);
+
+  // Find which phase this process belongs to
+  const { data: phaseLinks } = await supabase
+    .from('workflow_phase_processes')
+    .select('phase_id, position')
+    .eq('process_id', processLink.process_id)
+    .limit(1);
+
+  if (!phaseLinks?.length) return { success: true, data: null };
+
+  const phaseLink = phaseLinks[0];
+
+  // Get the phase and workflow
+  const { data: phase, error: phError } = await supabase
+    .from('workflow_phases')
+    .select('id, workflow_id, position')
+    .eq('id', phaseLink.phase_id)
+    .single();
+
+  if (phError) return { success: false, error: phError.message };
+
+  const { data: workflow, error: wfError } = await supabase
+    .from('workflows')
+    .select('id, title')
+    .eq('id', phase.workflow_id)
+    .single();
+
+  if (wfError) return { success: false, error: wfError.message };
+
+  const phaseNum = phase.position + 1;
+  const processNum = phaseLink.position + 1;
+  const caNum = caIndex + 1;
+
+  return {
+    success: true,
+    data: {
+      workflowId: workflow.id,
+      workflowTitle: workflow.title,
+      processId: process.id,
+      processTitle: process.title,
+      number: `${phaseNum}.${processNum}.${caNum}`,
+    },
+  };
+}
+
+/**
+ * Get workflows that contain a given core activity (indirect via process → phase → workflow).
+ */
+export async function getCoreActivityWorkflows(
+  coreActivityId: string
+): Promise<ActionResult<{ id: string; title: string }[]>> {
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const supabase = await createClient();
+
+  // CA → processes
+  const { data: processLinks } = await supabase
+    .from('process_core_activities')
+    .select('process_id')
+    .eq('core_activity_id', coreActivityId);
+
+  if (!processLinks?.length) return { success: true, data: [] };
+
+  const processIds = processLinks.map((pl) => pl.process_id);
+
+  // processes → phases
+  const { data: phaseLinks } = await supabase
+    .from('workflow_phase_processes')
+    .select('phase_id')
+    .in('process_id', processIds);
+
+  if (!phaseLinks?.length) return { success: true, data: [] };
+
+  const phaseIds = [...new Set(phaseLinks.map((pl) => pl.phase_id))];
+
+  // phases → workflows
+  const { data: phases } = await supabase
+    .from('workflow_phases')
+    .select('workflow_id')
+    .in('id', phaseIds);
+
+  if (!phases?.length) return { success: true, data: [] };
+
+  const workflowIds = [...new Set(phases.map((p) => p.workflow_id))];
+
+  const { data: workflows } = await supabase
+    .from('workflows')
+    .select('id, title')
+    .in('id', workflowIds);
+
+  return { success: true, data: workflows || [] };
+}

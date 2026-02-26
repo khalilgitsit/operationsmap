@@ -195,9 +195,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'title', label: 'Title', type: 'text', sortable: true, filterable: true, editable: true },
       { key: 'status', label: 'Status', type: 'select', sortable: true, filterable: true, editable: true, options: operationalStatuses },
       { key: 'subfunction_id', label: 'Subfunction', type: 'reference', filterable: true, editable: true, referenceType: 'subfunction' },
+      { key: 'description', label: 'Description', type: 'text', visible: false, editable: true },
       { key: 'trigger', label: 'Trigger', type: 'text', visible: false, editable: true },
       { key: 'end_state', label: 'End State', type: 'text', visible: false, editable: true },
-      { key: 'description', label: 'Description', type: 'text', visible: false, editable: true },
       { key: 'video_url', label: 'Video', type: 'url', visible: false, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
     ],
@@ -205,6 +205,7 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Must start with action verb (e.g., "Review invoice")' },
     ],
     associations: [
+      { label: 'Processes', junctionTable: 'process_core_activities', targetType: 'process', targetLabel: 'Processes', targetLabelField: 'title' },
       { label: 'Roles', junctionTable: 'core_activity_roles', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
       { label: 'People', junctionTable: 'core_activity_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
       { label: 'Software', junctionTable: 'core_activity_software', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },

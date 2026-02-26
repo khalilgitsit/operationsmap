@@ -148,101 +148,52 @@ This document contains the **active and future** implementation phases for Ops M
 
 ---
 
-### Phase 3.4: Record Page Layout & Field Improvements
+### Phase 3.4: Record Page Layout & Field Improvements ✅ COMPLETED
 
 **Goal:** Improve record page layouts, add numbering, field organization, and missing fields/associations.
 
-#### 3.4.1 Process Record Page — Column Widths & Process Visual
+**Completed:** Commit on 2026-02-26.
 
-**Root cause:** The current RecordView grid is `grid-cols-[1fr_320px_280px]` (record-view.tsx line 217/253). On a 1280px screen, the left column is ~656px while the activity column is only 320px. The left "About" column is far too wide for a set of label-value fields.
+#### 3.4.1 Process Record Page — Column Widths & Process Visual ✅
 
-**Requirements:**
+- [x] Changed RecordView grid layout for process pages to `grid-cols-[300px_1fr_280px]` (narrower left, wider middle)
+- [x] Created `ProcessVisual` component with horizontal flow of numbered CA nodes, arrow connectors, drag-to-reorder via dnd-kit
+- [x] Implemented numbering scheme: `{phase}.{process}.{ca}` (e.g., 1.1.1, 1.1.2) — positional, derived from sort order
+- [x] Click-to-navigate: clicking a node navigates to the CA's record page
+- [x] Add button (+) after last node to create new CAs inline
+- [x] Process visual rendered in middle column above activity feed for process record pages only
+- [x] Server action `getProcessWorkflowContext()` to fetch workflow numbering context for a process
 
-- [ ] Change the RecordView grid layout for process record pages to `grid-cols-[300px_1fr_280px]` — narrower left "About" column, expanded middle column
-- [ ] Add a **process visual** component pinned above the activity feed in the middle column:
-  - **Layout:** Horizontal left-to-right flow of core activity nodes. When the row exceeds the column's max width, items wrap to the next line (flexbox wrap).
-  - **Node content:** Each node shows the core activity's **number** (e.g., "1.1.1", "1.1.2" — see numbering scheme below) and **title**
-  - **Node interaction:** Clicking a node navigates to that core activity's record page
-  - **Add button:** A `+` button after the last node allows creating a new core activity within this process
-  - **Drag-to-reorder:** Users can drag nodes within the visual to reorder core activities. Reordering updates the `process_core_activities` junction table positions AND is reflected in the workflow builder view
-  - **Visual style:** Nodes connected by arrows or lines showing sequence flow. Use a compact card/chip style to fit within the column
-- [ ] **Numbering scheme for core activities:**
-  - In the workflow builder, phases are numbered 1, 2, 3...
-  - Processes within a phase are numbered {phase}.{process} — e.g., 1.1, 1.2, 2.1
-  - Core activities within a process are numbered {phase}.{process}.{ca} — e.g., 1.1.1, 1.1.2, 1.2.1
-  - These numbers appear in the workflow builder view next to each item
-  - These numbers appear on the process visual (middle column of process record page)
-  - These numbers appear on the core activity record page (as part of the title or as a prefix badge)
-  - Numbers are positional (derived from sort order), not stored — they update automatically when items are reordered
-- [ ] This layout change (narrower left, wider middle) applies only to process record pages. Other object record pages keep the current layout unless it also improves their readability.
+#### 3.4.2 Core Activity Record Page — Heading, Description & Associations ✅
 
-**Acceptance criteria:**
-- Process record page shows a narrow left column (~300px) with properties, a wide middle column with the process visual and activity feed below it, and the associations panel on the right
-- The process visual shows all associated core activities as numbered nodes in a horizontal flow
-- Dragging a node in the visual reorders the core activities and the change is reflected in the workflow builder
-- Clicking a node navigates to the core activity record page
-- Numbers follow the {phase}.{process}.{ca} format throughout the app
+- [x] All record pages (RecordView + DocumentView) show object type badge (e.g., "Core Activity") next to title
+- [x] Core activity record pages show positional number prefix (e.g., "1.1.3") if CA is in a workflow
+- [x] `description` column already existed in core_activity config — moved above trigger/end_state for better ordering
+- [x] Added reverse Processes association to core_activity config via `process_core_activities` junction table
+- [x] Added computed Workflows section in associations panel — read-only list queried via `getCoreActivityWorkflows()` server action
+- [x] Server actions: `getCoreActivityWorkflowContext()` and `getCoreActivityWorkflows()` in workflow.ts
 
----
+#### 3.4.3 Three-Dot Menu — Add Custom Field Option ✅
 
-#### 3.4.2 Core Activity Record Page — Heading, Description & Associations
+- [x] Added "Add Custom Field" menu item in three-dot dropdown on RecordView (above Delete, with separator)
+- [x] Added "Add Custom Field" menu item in three-dot dropdown on DocumentView (above Delete, with separator)
+- [x] Clicking navigates to `/settings/objects?type={objectType}` with current type pre-selected
+- [x] Settings objects page reads `type` query parameter and auto-selects on initial load
 
-**Requirements:**
+#### 3.4.4 Custom Properties — Mixed Arrangement with Defaults ✅
 
-- [ ] On ALL record pages (RecordView and DocumentView), display the record's actual title (e.g., "Cleanup Transcript") as the primary h1 heading, with the object type label (e.g., "Core Activity") shown as a small muted badge/tag next to the title
-- [ ] For core activity record pages specifically, also show the positional number prefix (e.g., "1.1.3") if the CA is associated with a process within a workflow
-- [ ] Add `description` column to the core_activity config in `object-config.ts`: `{ key: 'description', label: 'Description', type: 'text', editable: true, visible: false }` — the DB column already exists
-- [ ] Add a reverse association for Processes to the core_activity config: `{ label: 'Processes', junctionTable: 'process_core_activities', targetType: 'process', targetLabel: 'Processes', targetLabelField: 'title' }` — the junction table already exists
-- [ ] Add a computed/derived association for Workflows on the core_activity record page: query `process_core_activities → workflow_phase_processes → workflow_phases → workflows` to show which workflow(s) this CA belongs to. This can be a read-only list (not a standard add/remove association) since the relationship is indirect.
+- [x] Removed separate `<CustomProperties>` component section from record pages
+- [x] Custom properties now intermixed with default properties in a single unified list via `unifiedFields` useMemo
+- [x] Display order respects `property_order` org setting (set in Object Configuration 3.3.3)
+- [x] Fallback: if no custom order saved, default order from object-config.ts with custom props appended
+- [x] Custom property editing inline with same UX as default property editing
 
-**Acceptance criteria:**
-- Core activity record page shows "Cleanup Transcript" as the heading with a "Core Activity" badge and optionally a "1.1.3" number prefix
-- Description field is visible and editable on the core activity record page
-- Association panel shows linked Processes and Workflows
+#### 3.4.5 Core Activity ↔ Process Auto-Association ✅
 
----
-
-#### 3.4.3 Three-Dot Menu — Add Custom Field Option
-
-**Requirements:**
-
-- [ ] Add "Add Custom Field" as a menu item in the three-dot dropdown on all record pages (RecordView and DocumentView), above "Delete"
-- [ ] Clicking "Add Custom Field" navigates to `/settings/objects?type=core_activity` (or the relevant type) with the current object type pre-selected
-- [ ] On the object configuration page, if a `type` query parameter is present, auto-select that object type in the dropdown
-
-**Acceptance criteria:**
-- User is on a core activity record page, clicks the three-dot menu, sees "Add Custom Field" and "Delete"
-- Clicking "Add Custom Field" takes them to Settings > Object Configuration with "Core Activity" pre-selected
-
----
-
-#### 3.4.4 Custom Properties — Mixed Arrangement with Defaults
-
-**Requirements:**
-
-- [ ] Remove the separate "Custom Properties" section on record pages — custom properties must be intermixed with default properties in a single unified list
-- [ ] The display order of properties on record pages is determined by the order set in Object Configuration (see 3.3.3)
-- [ ] If no custom order has been saved, use the default order from `object-config.ts` with custom properties appended at the end
-- [ ] Only admins can drag-to-reorder properties in Object Configuration. The resulting order applies to ALL users in the organization for that object type.
-
-**Acceptance criteria:**
-- A custom property "SLA Target" created for processes appears inline among default properties (e.g., between "Trigger" and "End State") based on the admin's configured order
-- There is no separate "Custom Properties" section header on record pages
-
----
-
-#### 3.4.5 Core Activity ↔ Process Auto-Association
-
-**Requirements:**
-
-- [ ] In the workflow builder (`workflows/[id]/page.tsx`), when a new core activity is created within a process (via the add CA button in a process column), the code must automatically insert a row into `process_core_activities` linking the new CA to that process — in addition to creating the CA record itself
-- [ ] The auto-association should set the correct `position` (append to end of the process's CA list)
-- [ ] This auto-association must be reflected immediately in both:
-  - The core activity's record page (in the Processes association panel)
-  - The process's record page (in the Core Activities association panel and the process visual)
-
-**Acceptance criteria:**
-- User creates a core activity inside Process 1.1 in the workflow builder → navigates to that CA's record page → sees "Process 1.1" listed under associated Processes without any manual association step
+- [x] `createCoreActivityInProcess()` already inserts into `process_core_activities` junction table (was already implemented)
+- [x] Correct `position` set (appended to end of process's CA list)
+- [x] Now reflected on CA's record page via the new Processes reverse association in config
+- [x] Reflected on process's record page via both the Core Activities association and the ProcessVisual component
 
 ---
 

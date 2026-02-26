@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/status-badge';
@@ -13,7 +13,7 @@ import { ReferenceCombobox } from '@/components/reference-combobox';
 import { PreviewPanel } from '@/components/preview-panel';
 import { QuickCreatePanel } from '@/components/quick-create-panel';
 import { VideoEmbed } from '@/components/video-embed';
-import { CustomProperties } from '@/components/custom-properties';
+import { ProcessVisual } from '@/components/process-visual';
 import {
   Select,
   SelectContent,
@@ -35,10 +35,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Send, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Send, Settings, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExportButton } from '@/components/export-button';
 import {
@@ -60,11 +61,26 @@ import {
 } from '@/server/actions/generic';
 import { addAssociation, removeAssociation } from '@/server/actions/associations';
 import { getOrgSetting } from '@/server/actions/settings';
+import { getCoreActivityWorkflowContext, getCoreActivityWorkflows, type CoreActivityWorkflowContext } from '@/server/actions/workflow';
 import { cn } from '@/lib/utils';
 
 interface RecordViewProps {
   config: ObjectConfig;
   recordId: string;
+}
+
+interface CustomPropertyDef {
+  id: string;
+  property_name: string;
+  property_type: string;
+  options: string[] | null;
+  position: number;
+}
+
+interface CustomPropertyValue {
+  id: string;
+  custom_property_id: string;
+  value: unknown;
 }
 
 export function RecordView({ config, recordId }: RecordViewProps) {
@@ -84,6 +100,15 @@ export function RecordView({ config, recordId }: RecordViewProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [assocVisibility, setAssocVisibility] = useState<Record<string, Record<string, boolean>> | null>(null);
   const [referenceLabels, setReferenceLabels] = useState<Record<string, { label: string; href: string }>>({});
+  // 3.4.2: Workflow context for core activity numbering
+  const [caWorkflowContext, setCaWorkflowContext] = useState<CoreActivityWorkflowContext | null>(null);
+  const [caWorkflows, setCaWorkflows] = useState<{ id: string; title: string }[]>([]);
+  // 3.4.4: Property order and custom properties for mixed arrangement
+  const [propertyOrder, setPropertyOrder] = useState<string[] | null>(null);
+  const [customProperties, setCustomProperties] = useState<CustomPropertyDef[]>([]);
+  const [customValues, setCustomValues] = useState<Record<string, CustomPropertyValue>>({});
+  const [editingCustomProp, setEditingCustomProp] = useState<string | null>(null);
+  const [customEditValue, setCustomEditValue] = useState<unknown>(null);
 
   const fetchAssocVisibility = useCallback(async () => {
     const result = await getOrgSetting('association_visibility');
@@ -145,12 +170,64 @@ export function RecordView({ config, recordId }: RecordViewProps) {
     setAssociations(results);
   }, [config, recordId]);
 
+  // 3.4.2: Fetch workflow context for core activity numbering
+  const fetchCoreActivityContext = useCallback(async () => {
+    if (config.type !== 'core_activity') return;
+    const [ctxResult, wfResult] = await Promise.all([
+      getCoreActivityWorkflowContext(recordId),
+      getCoreActivityWorkflows(recordId),
+    ]);
+    if (ctxResult.success && ctxResult.data) setCaWorkflowContext(ctxResult.data);
+    if (wfResult.success) setCaWorkflows(wfResult.data);
+  }, [config.type, recordId]);
+
+  // 3.4.4: Fetch property order and custom properties for mixed arrangement
+  const fetchPropertyConfig = useCallback(async () => {
+    const [orderResult, { createClient }] = await Promise.all([
+      getOrgSetting('property_order'),
+      import('@/lib/supabase/client'),
+    ]);
+    if (orderResult.success && orderResult.data) {
+      const allOrders = orderResult.data as Record<string, string[]>;
+      setPropertyOrder(allOrders[config.type] ?? null);
+    }
+    // Fetch custom properties
+    const supabase = createClient();
+    const { data: props } = await supabase
+      .from('custom_properties')
+      .select('*')
+      .eq('object_type', config.type as 'function' | 'subfunction' | 'process' | 'core_activity' | 'person' | 'role' | 'software')
+      .order('position', { ascending: true });
+    if (props && props.length > 0) {
+      setCustomProperties(props.map((p) => ({
+        ...p,
+        options: p.options as string[] | null,
+      })));
+      const propIds = props.map((p) => p.id);
+      const { data: vals } = await supabase
+        .from('custom_property_values')
+        .select('*')
+        .eq('record_id', recordId)
+        .eq('record_type', config.type)
+        .in('custom_property_id', propIds);
+      if (vals) {
+        const valueMap: Record<string, CustomPropertyValue> = {};
+        for (const v of vals) {
+          valueMap[v.custom_property_id] = { id: v.id, custom_property_id: v.custom_property_id, value: v.value };
+        }
+        setCustomValues(valueMap);
+      }
+    }
+  }, [config.type, recordId]);
+
   useEffect(() => {
     fetchRecord();
     fetchActivities();
     fetchAssociations();
     fetchAssocVisibility();
-  }, [fetchRecord, fetchActivities, fetchAssociations, fetchAssocVisibility]);
+    fetchCoreActivityContext();
+    fetchPropertyConfig();
+  }, [fetchRecord, fetchActivities, fetchAssociations, fetchAssocVisibility, fetchCoreActivityContext, fetchPropertyConfig]);
 
   const handleFieldSave = (field: string, value: unknown) => {
     // Core Activity status validation: cannot be Active without subfunction
@@ -251,9 +328,82 @@ export function RecordView({ config, recordId }: RecordViewProps) {
     });
   };
 
+  // 3.4.4: Save custom property value
+  const saveCustomValue = (propertyId: string, value: unknown) => {
+    startTransition(async () => {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const existing = customValues[propertyId];
+      if (existing) {
+        await supabase
+          .from('custom_property_values')
+          .update({ value: value as null })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('custom_property_values')
+          .insert({
+            custom_property_id: propertyId,
+            record_id: recordId,
+            record_type: config.type,
+            value: value as null,
+          } as never);
+      }
+      setCustomValues((prev) => ({
+        ...prev,
+        [propertyId]: { id: existing?.id || '', custom_property_id: propertyId, value },
+      }));
+      setEditingCustomProp(null);
+      toast.success('Saved');
+    });
+  };
+
+  // 3.4.4: Build unified property list (default + custom, ordered by saved order)
+  const unifiedFields = useMemo(() => {
+    // Build a list of all renderable fields
+    type FieldItem = {
+      key: string;
+      kind: 'default' | 'custom';
+      col?: ColumnConfig;
+      customProp?: CustomPropertyDef;
+    };
+
+    // Default fields (excluding title and title fields)
+    const defaultFields: FieldItem[] = config.columns
+      .filter((col) => col.key !== config.titleField && !(config.titleFields ?? []).includes(col.key))
+      .map((col) => ({ key: col.key, kind: 'default' as const, col }));
+
+    // Custom property fields
+    const customFields: FieldItem[] = customProperties.map((cp) => ({
+      key: `custom_${cp.id}`,
+      kind: 'custom' as const,
+      customProp: cp,
+    }));
+
+    const allFields = [...defaultFields, ...customFields];
+
+    // Apply saved order if available
+    if (propertyOrder && propertyOrder.length > 0) {
+      const orderMap = new Map(propertyOrder.map((key, idx) => [key, idx]));
+      allFields.sort((a, b) => {
+        const aIdx = orderMap.get(a.key) ?? 999;
+        const bIdx = orderMap.get(b.key) ?? 999;
+        return aIdx - bIdx;
+      });
+    }
+
+    return allFields;
+  }, [config, customProperties, propertyOrder]);
+
+  // 3.4.1: Determine grid layout based on object type
+  const isProcessPage = config.type === 'process';
+  const gridClass = isProcessPage
+    ? 'grid-cols-1 lg:grid-cols-[300px_1fr_280px]'
+    : 'grid-cols-1 lg:grid-cols-[1fr_320px_280px]';
+
   if (loading) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px_280px] gap-6">
+      <div className={`grid ${gridClass} gap-6`}>
         <div className="space-y-4">
           <Skeleton className="h-8 w-64" />
           {Array.from({ length: 6 }).map((_, i) => (
@@ -289,7 +439,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px_280px] gap-6">
+      <div className={`grid ${gridClass} gap-6`}>
         {/* Left Column — Properties */}
         <div className="space-y-1">
           <RecordTitleBar
@@ -301,13 +451,14 @@ export function RecordView({ config, recordId }: RecordViewProps) {
             onFieldSave={handleFieldSave}
             onSetDeleteDialogOpen={setDeleteDialogOpen}
             onDelete={handleDelete}
+            numberPrefix={caWorkflowContext?.number}
           />
 
-          {/* Fields */}
+          {/* 3.4.4: Unified fields (default + custom, ordered) */}
           <div className="space-y-3">
-            {config.columns
-              .filter((col): col is typeof col => col.key !== config.titleField && !(config.titleFields ?? []).includes(col.key))
-              .map((col) => {
+            {unifiedFields.map((field) => {
+              if (field.kind === 'default' && field.col) {
+                const col = field.col;
                 const value = record[col.key];
                 const isEditing = editingField === col.key;
 
@@ -337,7 +488,44 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                     </div>
                   </div>
                 );
-              })}
+              }
+
+              // Custom property field
+              if (field.kind === 'custom' && field.customProp) {
+                const cp = field.customProp;
+                const currentValue = customValues[cp.id]?.value;
+                const isEditing = editingCustomProp === cp.id;
+
+                return (
+                  <div key={field.key} className="flex items-start gap-4 py-2">
+                    <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{cp.property_name}</span>
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <CustomPropertyInput
+                          prop={cp}
+                          value={customEditValue}
+                          onChange={setCustomEditValue}
+                          onSave={() => saveCustomValue(cp.id, customEditValue)}
+                          onCancel={() => setEditingCustomProp(null)}
+                        />
+                      ) : (
+                        <div
+                          className="text-sm py-1 cursor-pointer hover:bg-muted/50 rounded px-2 -mx-2"
+                          onClick={() => {
+                            setEditingCustomProp(cp.id);
+                            setCustomEditValue(currentValue ?? '');
+                          }}
+                        >
+                          {formatCustomValue(currentValue, cp.property_type)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              return null;
+            })}
           </div>
 
           {/* Video embed for core_activity */}
@@ -349,13 +537,23 @@ export function RecordView({ config, recordId }: RecordViewProps) {
               </div>
             </div>
           )}
-
-          {/* Custom Properties */}
-          <CustomProperties recordId={recordId} objectType={config.type} />
         </div>
 
-        {/* Middle Column — Activity Feed */}
+        {/* Middle Column — Process Visual (for process pages) + Activity Feed */}
         <div className="border-l pl-6">
+          {/* 3.4.1: Process visual for process record pages */}
+          {isProcessPage && (
+            <div className="mb-6">
+              <ProcessVisual
+                processId={recordId}
+                onRefresh={() => {
+                  fetchAssociations();
+                  fetchActivities();
+                }}
+              />
+            </div>
+          )}
+
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Activity</h2>
 
           {/* Comment Input */}
@@ -431,6 +629,28 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                   onToggle={() => toggleSection(assoc.junctionTable)}
                 />
               ))}
+
+              {/* 3.4.2: Computed Workflows association for core activities */}
+              {config.type === 'core_activity' && caWorkflows.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Workflows</span>
+                    <span className="text-xs text-muted-foreground">{caWorkflows.length}</span>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {caWorkflows.map((wf) => (
+                      <div
+                        key={wf.id}
+                        className="text-sm px-2 py-1 rounded hover:bg-muted transition-colors"
+                      >
+                        <Link href={`/workflows/${wf.id}`} className="text-primary hover:underline">
+                          {wf.title}
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -595,7 +815,7 @@ function renderFieldValue(
         </Link>
       );
     }
-    return <span className="text-muted-foreground italic">Loading…</span>;
+    return <span className="text-muted-foreground italic">Loading...</span>;
   }
   if (col.type === 'multi_select' && Array.isArray(value)) {
     return value.length > 0 ? (
@@ -604,7 +824,7 @@ function renderFieldValue(
           <span key={v} className="rounded bg-muted px-1.5 py-0.5 text-xs">{v}</span>
         ))}
       </div>
-    ) : '—';
+    ) : <span className="text-muted-foreground">—</span>;
   }
   if (col.type === 'markdown' && value) {
     return <p className="whitespace-pre-wrap">{value as string}</p>;
@@ -668,6 +888,7 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
+// 3.4.2 + 3.4.3: Updated title bar with type badge, number prefix, and "Add Custom Field" menu item
 function RecordTitleBar({
   record,
   config,
@@ -677,6 +898,7 @@ function RecordTitleBar({
   onFieldSave,
   onSetDeleteDialogOpen,
   onDelete,
+  numberPrefix,
 }: {
   record: Record<string, unknown>;
   config: ObjectConfig;
@@ -686,7 +908,9 @@ function RecordTitleBar({
   onFieldSave: (field: string, value: unknown) => void;
   onSetDeleteDialogOpen: (open: boolean) => void;
   onDelete: () => void;
+  numberPrefix?: string;
 }) {
+  const router = useRouter();
   const title = getRecordTitle(record, config);
   const titleField = config.titleField;
   const isEditingTitle = editingField === titleField;
@@ -706,12 +930,24 @@ function RecordTitleBar({
             }}
           />
         ) : (
-          <h1
-            className="text-xl font-semibold cursor-pointer hover:text-primary transition-colors"
-            onClick={() => onSetEditingField(titleField)}
-          >
-            {title || 'Untitled'}
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 3.4.2: Number prefix for core activities in workflows */}
+            {numberPrefix && (
+              <span className="text-sm font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded shrink-0">
+                {numberPrefix}
+              </span>
+            )}
+            <h1
+              className="text-xl font-semibold cursor-pointer hover:text-primary transition-colors"
+              onClick={() => onSetEditingField(titleField)}
+            >
+              {title || 'Untitled'}
+            </h1>
+            {/* 3.4.2: Object type badge */}
+            <Badge variant="secondary" className="text-[10px] shrink-0">
+              {config.label}
+            </Badge>
+          </div>
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
@@ -723,6 +959,14 @@ function RecordTitleBar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {/* 3.4.3: Add Custom Field option */}
+            <DropdownMenuItem
+              onSelect={() => router.push(`/settings/objects?type=${config.type}`)}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              Add Custom Field
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               onSelect={() => onSetDeleteDialogOpen(true)}
@@ -899,4 +1143,102 @@ function AssociationSection({
       )}
     </div>
   );
+}
+
+// 3.4.4: Custom property input component
+function CustomPropertyInput({
+  prop,
+  value,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  prop: CustomPropertyDef;
+  value: unknown;
+  onChange: (v: unknown) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  switch (prop.property_type) {
+    case 'select':
+      return (
+        <Select value={(value as string) || ''} onValueChange={(v) => { onChange(v); }}>
+          <SelectTrigger className="h-8">
+            <SelectValue placeholder="Select..." />
+          </SelectTrigger>
+          <SelectContent>
+            {(prop.options || []).map((opt) => (
+              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    case 'number':
+    case 'currency':
+      return (
+        <Input
+          type="number"
+          autoFocus
+          className="h-8"
+          value={value as number ?? ''}
+          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+          onBlur={onSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSave();
+            if (e.key === 'Escape') onCancel();
+          }}
+        />
+      );
+    case 'date':
+      return (
+        <Input
+          type="date"
+          autoFocus
+          className="h-8"
+          value={(value as string) || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          onBlur={onSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSave();
+            if (e.key === 'Escape') onCancel();
+          }}
+        />
+      );
+    case 'boolean':
+      return (
+        <Select value={String(value || false)} onValueChange={(v) => { onChange(v === 'true'); }}>
+          <SelectTrigger className="h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="true">Yes</SelectItem>
+            <SelectItem value="false">No</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    default:
+      return (
+        <Input
+          autoFocus
+          className="h-8"
+          type={prop.property_type === 'email' ? 'email' : prop.property_type === 'url' ? 'url' : 'text'}
+          value={(value as string) || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          onBlur={onSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSave();
+            if (e.key === 'Escape') onCancel();
+          }}
+        />
+      );
+  }
+}
+
+function formatCustomValue(value: unknown, type: string): React.ReactNode {
+  if (value === null || value === undefined || value === '') return <span className="text-muted-foreground">—</span>;
+  if (type === 'boolean') return value ? 'Yes' : 'No';
+  if (type === 'currency') return `$${Number(value).toLocaleString()}`;
+  if (type === 'date') return new Date(value as string).toLocaleDateString();
+  if (type === 'multi_select' && Array.isArray(value)) return (value as string[]).join(', ');
+  return String(value);
 }
