@@ -263,45 +263,51 @@ export default function FunctionChartPage() {
             >
               {/* Function header */}
               <div className="p-3 border-b bg-muted/50 rounded-t-lg">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <h3
-                      className="font-semibold text-sm cursor-pointer hover:text-primary transition-colors truncate"
-                      onClick={() => router.push(`/function-chart/${fn.id}`)}
+                <div className="flex items-start justify-between gap-1">
+                  <div className="flex-1 min-w-0">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <h3
+                          className="font-semibold text-sm cursor-pointer hover:text-primary transition-colors truncate"
+                          onClick={() => router.push(`/function-chart/${fn.id}`)}
+                        >
+                          {fn.title}
+                        </h3>
+                      </TooltipTrigger>
+                      {fn.description && (
+                        <TooltipContent side="bottom" className="max-w-[300px]">
+                          <p className="text-xs">{fn.description}</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                    <button
+                      className="text-[11px] text-muted-foreground/70 hover:text-primary hover:underline mt-0.5"
+                      onClick={() => router.push(`/functions/${fn.id}`)}
                     >
-                      {fn.title}
-                    </h3>
-                  </TooltipTrigger>
-                  {fn.description && (
-                    <TooltipContent side="bottom" className="max-w-[300px]">
-                      <p className="text-xs">{fn.description}</p>
+                      Edit properties
+                    </button>
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-primary flex-shrink-0"
+                        onClick={() =>
+                          setCreateState({
+                            type: 'subfunction',
+                            defaults: { function_id: fn.id },
+                          })
+                        }
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="text-xs">Add Subfunction</p>
                     </TooltipContent>
-                  )}
-                </Tooltip>
-                <button
-                  className="text-xs text-muted-foreground hover:text-primary hover:underline mt-0.5"
-                  onClick={() => router.push(`/functions/${fn.id}`)}
-                >
-                  View record
-                </button>
-              </div>
-
-              {/* Add subfunction at top */}
-              <div className="px-2 pt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full h-7 text-xs text-muted-foreground hover:text-primary"
-                  onClick={() =>
-                    setCreateState({
-                      type: 'subfunction',
-                      defaults: { function_id: fn.id },
-                    })
-                  }
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add Subfunction
-                </Button>
+                  </Tooltip>
+                </div>
               </div>
 
               {/* Subfunction cards */}
@@ -336,7 +342,7 @@ export default function FunctionChartPage() {
                 </DndContext>
               </div>
 
-              {/* Add subfunction at bottom */}
+              {/* Single add button at bottom */}
               <div className="px-2 pb-2">
                 <Button
                   variant="ghost"

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { StatusBadge } from '@/components/status-badge';
 import { Plus, Search, ArrowUpDown, MoreHorizontal, Trash2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
@@ -12,6 +13,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +37,7 @@ interface WorkflowItem {
   id: string;
   title: string;
   description: string | null;
+  status: string;
   created_at: string;
   updated_at: string;
   phase_count: number;
@@ -36,8 +45,9 @@ interface WorkflowItem {
   core_activity_count: number;
 }
 
-type SortField = 'title' | 'updated_at' | 'phase_count' | 'process_count' | 'core_activity_count';
+type SortField = 'title' | 'status' | 'updated_at' | 'phase_count' | 'process_count' | 'core_activity_count';
 type SortDir = 'asc' | 'desc';
+type StatusFilter = 'all' | 'Draft' | 'Active' | 'Archived';
 
 export default function WorkflowsPage() {
   const router = useRouter();
@@ -45,6 +55,7 @@ export default function WorkflowsPage() {
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortField, setSortField] = useState<SortField>('updated_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [creating, setCreating] = useState(false);
@@ -70,7 +81,7 @@ export default function WorkflowsPage() {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
-      setSortDir(field === 'title' ? 'asc' : 'desc');
+      setSortDir(field === 'title' || field === 'status' ? 'asc' : 'desc');
     }
   };
 
@@ -94,7 +105,11 @@ export default function WorkflowsPage() {
   };
 
   const filtered = workflows
-    .filter((w) => !search || w.title.toLowerCase().includes(search.toLowerCase()))
+    .filter((w) => {
+      if (search && !w.title.toLowerCase().includes(search.toLowerCase())) return false;
+      if (statusFilter !== 'all' && w.status !== statusFilter) return false;
+      return true;
+    })
     .sort((a, b) => {
       const aVal = a[sortField];
       const bVal = b[sortField];
@@ -121,6 +136,17 @@ export default function WorkflowsPage() {
             className="pl-9"
           />
         </div>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="Draft">Draft</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
         <Button variant="outline" onClick={() => setImportOpen(true)}>
           <Upload className="h-4 w-4 mr-2" />
           Import
@@ -185,6 +211,7 @@ export default function WorkflowsPage() {
             <thead>
               <tr className="border-b bg-muted/50">
                 <SortableHeader field="title" label="Title" sortField={sortField} sortDir={sortDir} onSort={handleSort} />
+                <SortableHeader field="status" label="Status" sortField={sortField} sortDir={sortDir} onSort={handleSort} className="w-[120px]" />
                 <SortableHeader field="phase_count" label="Phases" sortField={sortField} sortDir={sortDir} onSort={handleSort} className="w-[100px]" />
                 <SortableHeader field="process_count" label="Processes" sortField={sortField} sortDir={sortDir} onSort={handleSort} className="w-[100px]" />
                 <SortableHeader field="core_activity_count" label="Core Activities" sortField={sortField} sortDir={sortDir} onSort={handleSort} className="w-[130px]" />
@@ -200,7 +227,13 @@ export default function WorkflowsPage() {
                   onClick={() => router.push(`/workflows/${wf.id}`)}
                 >
                   <td className="px-4 py-3">
-                    <span className="font-medium text-sm">{wf.title}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{wf.title}</span>
+                      <StatusBadge status={wf.status} />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={wf.status} />
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{wf.phase_count}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{wf.process_count}</td>
@@ -238,7 +271,7 @@ export default function WorkflowsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">
+                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">
                     No workflows match your search.
                   </td>
                 </tr>

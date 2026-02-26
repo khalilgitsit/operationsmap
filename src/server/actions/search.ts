@@ -107,7 +107,7 @@ const SEARCH_CONFIGS = [
     titleField: 'title',
     searchFields: ['title', 'description'],
     subtitleField: 'description',
-    statusField: null,
+    statusField: 'status',
     href: (id: string) => `/workflows/${id}`,
   },
   {
