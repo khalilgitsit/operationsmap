@@ -80,6 +80,7 @@ import {
 import { searchRecords } from '@/server/actions/generic';
 import { getWorkflowExportData } from '@/server/actions/export';
 import { exportWorkflow, downloadMarkdown, copyToClipboard } from '@/lib/markdown-export';
+import { MarkdownImportDialog } from '@/components/markdown-import-dialog';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -99,6 +100,7 @@ import {
   Download,
   Copy,
   FileDown,
+  Upload,
 } from 'lucide-react';
 
 type VisibilityMode = 'all' | 'active' | 'not-archived';
@@ -130,6 +132,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
   // Panel states
   const [previewState, setPreviewState] = useState<{ type: string; id: string } | null>(null);
   const [deletePhaseId, setDeletePhaseId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Editing states
   const [editingTitle, setEditingTitle] = useState(false);
@@ -298,7 +301,11 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
             <ToggleButton active={showRoles} onClick={() => setShowRoles((v) => !v)} icon={<Shield className="h-4 w-4" />} label="Roles" />
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3.5 w-3.5 mr-1" />
+              Import
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -465,6 +472,14 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Markdown Import Dialog */}
+        <MarkdownImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          importType="workflow"
+          onImported={fetchData}
+        />
       </div>
     </TooltipProvider>
   );

@@ -49,7 +49,7 @@ import {
   type FunctionChartFunction,
   type FunctionChartSubfunction,
 } from '@/server/actions/function-chart';
-import { Plus, GripVertical, Users, Monitor, Shield, Tag, Download, Copy, FileDown } from 'lucide-react';
+import { Plus, GripVertical, Users, Monitor, Shield, Tag, Download, Copy, FileDown, Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +59,7 @@ import {
 import { toast } from 'sonner';
 import { getFunctionChartExportData } from '@/server/actions/export';
 import { exportFunctionChart, downloadMarkdown, copyToClipboard } from '@/lib/markdown-export';
+import { MarkdownImportDialog } from '@/components/markdown-import-dialog';
 
 type SortMode = 'custom' | 'az' | 'za';
 
@@ -89,6 +90,7 @@ export default function FunctionChartPage() {
     type: string;
     defaults?: Record<string, unknown>;
   } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -203,7 +205,11 @@ export default function FunctionChartPage() {
             />
           </div>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3.5 w-3.5 mr-1" />
+              Import
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -384,6 +390,14 @@ export default function FunctionChartPage() {
             }}
           />
         )}
+
+        {/* Markdown Import Dialog */}
+        <MarkdownImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          importType="function_chart"
+          onImported={fetchData}
+        />
       </div>
     </TooltipProvider>
   );

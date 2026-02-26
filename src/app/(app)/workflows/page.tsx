@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, ArrowUpDown, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Plus, Search, ArrowUpDown, MoreHorizontal, Trash2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { listWorkflows, createWorkflow, deleteWorkflow } from '@/server/actions/workflow';
+import { MarkdownImportDialog } from '@/components/markdown-import-dialog';
 
 interface WorkflowItem {
   id: string;
@@ -49,6 +50,7 @@ export default function WorkflowsPage() {
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -119,6 +121,10 @@ export default function WorkflowsPage() {
             className="pl-9"
           />
         </div>
+        <Button variant="outline" onClick={() => setImportOpen(true)}>
+          <Upload className="h-4 w-4 mr-2" />
+          Import
+        </Button>
         <Button onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Create Workflow
@@ -259,6 +265,14 @@ export default function WorkflowsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Markdown Import Dialog */}
+      <MarkdownImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        importType="workflow"
+        onImported={fetchData}
+      />
     </div>
   );
 }
