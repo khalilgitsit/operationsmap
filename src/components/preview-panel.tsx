@@ -22,8 +22,10 @@ import {
   getRecordTitle,
   getObjectConfig,
   OBJECT_CONFIGS,
+  isDocumentType,
 } from '@/lib/object-config';
 import { getRecord, updateRecord, getActivityLog, getAssociations } from '@/server/actions/generic';
+import { DocumentView } from '@/components/document-view';
 
 interface PreviewPanelProps {
   open: boolean;
@@ -98,6 +100,31 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
   };
 
   if (!config || !currentId) return null;
+
+  // For document types, render DocumentView in side panel mode
+  if (isDocumentType(currentType) && stack.length === 0) {
+    return (
+      <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setStack([]); setRecord(null); } }}>
+        <SheetContent className="w-[50vw] sm:w-[50vw] max-w-3xl flex flex-col p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>{config.label}</SheetTitle>
+            <SheetDescription>{config.label} document view</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-hidden p-4">
+            <DocumentView
+              config={config}
+              recordId={currentId}
+              sidePanel
+              onExpandToFullPage={() => {
+                onOpenChange(false);
+                router.push(config.recordHref(currentId));
+              }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setStack([]); setRecord(null); } }}>
