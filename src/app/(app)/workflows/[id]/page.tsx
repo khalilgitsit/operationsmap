@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition, use } from 'react';
+import React, { useState, useEffect, useCallback, useTransition, use, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   DndContext,
@@ -9,6 +9,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
 } from '@dnd-kit/core';
@@ -137,6 +138,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
   // Editing states
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState('');
+  const [statusValue, setStatusValue] = useState('Draft');
 
   // Drag state
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
@@ -151,6 +153,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
     if (result.success) {
       setData(result.data);
       setTitleValue(result.data.title);
+      setStatusValue(result.data.status);
     }
     setLoading(false);
   }, [workflowId]);
@@ -256,8 +259,8 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
           backLabel="All Workflows"
         />
 
-        {/* Workflow Title */}
-        <div className="mb-4">
+        {/* Workflow Title + Status */}
+        <div className="mb-4 flex items-center gap-3">
           {editingTitle ? (
             <Input
               autoFocus
@@ -279,6 +282,41 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
               {data.title}
             </h1>
           )}
+          <Select
+            value={statusValue}
+            onValueChange={(v) => {
+              const newStatus = v as 'Draft' | 'Active' | 'Archived';
+              setStatusValue(newStatus);
+              setData((d) => d ? { ...d, status: newStatus } : d);
+              startTransition(async () => {
+                await updateWorkflow(workflowId, { status: newStatus });
+              });
+            }}
+          >
+            <SelectTrigger className="w-[130px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Draft">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-gray-400" />
+                  Draft
+                </div>
+              </SelectItem>
+              <SelectItem value="Active">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-green-500" />
+                  Active
+                </div>
+              </SelectItem>
+              <SelectItem value="Archived">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                  Archived
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Toolbar */}
@@ -553,10 +591,118 @@ function SortablePhase({
   const [collapsed, setCollapsed] = useState(false);
   const [showAddProcess, setShowAddProcess] = useState(false);
 
-  // DnD sensors for processes within this phase
+  // DnD sensors for processes and CAs within this phase
   const processSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
+  const caSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  // Local state for cross-process CA drag
+  const [localProcesses, setLocalProcesses] = useState(phase.processes);
+  useEffect(() => { setLocalProcesses(phase.processes); }, [phase.processes]);
+  const [activeDragCAId, setActiveDragCAId] = useState<string | null>(null);
+  const localProcessesRef = useRef(localProcesses);
+  localProcessesRef.current = localProcesses;
+
+  // Find which process a CA belongs to
+  const findProcessForCA = (caId: string): string | null => {
+    for (const proc of localProcesses) {
+      if (proc.coreActivities.some((ca) => ca.id === caId)) return proc.id;
+    }
+    return null;
+  };
+
+  const handleCADragStart = (event: DragStartEvent) => {
+    setActiveDragCAId(event.active.id as string);
+  };
+
+  const handleCADragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeProcessId = findProcessForCA(active.id as string);
+    let overProcessId = findProcessForCA(over.id as string);
+    // If over is a process container itself (empty process drop zone)
+    if (!overProcessId) {
+      overProcessId = localProcesses.find((p) => p.id === over.id)?.id || null;
+    }
+
+    if (!activeProcessId || !overProcessId || activeProcessId === overProcessId) return;
+
+    // Move CA from source to target process
+    setLocalProcesses((prev) => {
+      const sourceProc = prev.find((p) => p.id === activeProcessId);
+      const targetProc = prev.find((p) => p.id === overProcessId);
+      if (!sourceProc || !targetProc) return prev;
+
+      const activeCA = sourceProc.coreActivities.find((ca) => ca.id === active.id);
+      if (!activeCA) return prev;
+
+      return prev.map((p) => {
+        if (p.id === activeProcessId) {
+          return { ...p, coreActivities: p.coreActivities.filter((ca) => ca.id !== active.id) };
+        }
+        if (p.id === overProcessId) {
+          const overIndex = p.coreActivities.findIndex((ca) => ca.id === over.id);
+          const newCAs = [...p.coreActivities];
+          if (overIndex >= 0) {
+            newCAs.splice(overIndex, 0, activeCA);
+          } else {
+            newCAs.push(activeCA);
+          }
+          return { ...p, coreActivities: newCAs };
+        }
+        return p;
+      });
+    });
+  };
+
+  const handleCADragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragCAId(null);
+
+    if (!over) return;
+
+    const activeProcessId = findProcessForCA(active.id as string);
+    if (!activeProcessId) return;
+
+    // Same-process reorder
+    let updatedProcesses = localProcessesRef.current;
+    if (active.id !== over.id) {
+      const overProcessId = findProcessForCA(over.id as string) || activeProcessId;
+      if (activeProcessId === overProcessId) {
+        updatedProcesses = updatedProcesses.map((p) => {
+          if (p.id !== activeProcessId) return p;
+          const oldIndex = p.coreActivities.findIndex((ca) => ca.id === active.id);
+          const newIndex = p.coreActivities.findIndex((ca) => ca.id === over.id);
+          if (oldIndex === -1 || newIndex === -1) return p;
+          return { ...p, coreActivities: arrayMove(p.coreActivities, oldIndex, newIndex) };
+        });
+        setLocalProcesses(updatedProcesses);
+      }
+    }
+
+    // Persist all CA positions across all processes
+    const updates: { processId: string; coreActivityId: string; position: number }[] = [];
+    for (const proc of updatedProcesses) {
+      proc.coreActivities.forEach((ca, i) => {
+        updates.push({ processId: proc.id, coreActivityId: ca.id, position: i });
+      });
+    }
+    if (updates.length > 0) {
+      startTransition(async () => {
+        await reorderCoreActivitiesInProcess(updates);
+        await onRefresh();
+      });
+    }
+  };
+
+  // Active CA for drag overlay
+  const activeDragCA = activeDragCAId
+    ? localProcesses.flatMap((p) => p.coreActivities).find((ca) => ca.id === activeDragCAId)
+    : null;
 
   // Get status color for the phase header stripe
   const statusColor = getStatusBorderColor(phase.status);
@@ -625,7 +771,7 @@ function SortablePhase({
     });
   };
 
-  const filteredProcesses = phase.processes.filter((p) => filterByStatus(p.status));
+  const filteredProcesses = localProcesses.filter((p) => filterByStatus(p.status));
 
   return (
     <div ref={setNodeRef} style={style}>
@@ -738,42 +884,61 @@ function SortablePhase({
           <div className="p-3 space-y-3">
             <DndContext sensors={processSensors} collisionDetection={closestCenter} onDragEnd={handleProcessDragEnd}>
               <SortableContext items={filteredProcesses.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-                {filteredProcesses.map((proc, procIndex) => (
-                  <div key={proc.id}>
-                    {/* "+" button above each process */}
-                    {addProcessAtPosition === procIndex ? (
-                      <AddProcessForm
-                        onCreateNew={(title) => handleAddProcess(title, procIndex)}
-                        onAddExisting={(id) => handleAddExistingProcess(id, procIndex)}
-                        onCancel={() => setAddProcessAtPosition(null)}
+                <DndContext
+                  sensors={caSensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleCADragStart}
+                  onDragOver={handleCADragOver}
+                  onDragEnd={handleCADragEnd}
+                >
+                  {filteredProcesses.map((proc, procIndex) => (
+                    <div key={proc.id}>
+                      {/* "+" button above each process */}
+                      {addProcessAtPosition === procIndex ? (
+                        <AddProcessForm
+                          onCreateNew={(title) => handleAddProcess(title, procIndex)}
+                          onAddExisting={(id) => handleAddExistingProcess(id, procIndex)}
+                          onCancel={() => setAddProcessAtPosition(null)}
+                        />
+                      ) : (
+                        <div className="flex justify-center py-0.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 text-[10px] text-muted-foreground/50 hover:text-primary opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                            onClick={() => setAddProcessAtPosition(procIndex)}
+                          >
+                            <Plus className="h-2.5 w-2.5 mr-0.5" />
+                            Insert Process
+                          </Button>
+                        </div>
+                      )}
+                      <SortableProcess
+                        process={proc}
+                        processNumber={`${phaseNumber}.${procIndex + 1}`}
+                        showPeople={showPeople}
+                        showSoftware={showSoftware}
+                        showRoles={showRoles}
+                        filterByStatus={filterByStatus}
+                        onPreview={onPreview}
+                        onRemove={() => handleRemoveProcess(proc.id)}
+                        onRefresh={onRefresh}
+                        startTransition={startTransition}
                       />
-                    ) : (
-                      <div className="flex justify-center py-0.5">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-5 text-[10px] text-muted-foreground/50 hover:text-primary opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
-                          onClick={() => setAddProcessAtPosition(procIndex)}
-                        >
-                          <Plus className="h-2.5 w-2.5 mr-0.5" />
-                          Insert Process
-                        </Button>
+                    </div>
+                  ))}
+
+                  <DragOverlay>
+                    {activeDragCA ? (
+                      <div className="bg-background rounded px-2 py-1.5 border shadow-lg opacity-90 w-[240px]">
+                        <div className="flex items-center gap-2">
+                          <div className={`h-2 w-2 rounded-full flex-shrink-0 ${getStatusDotColor(activeDragCA.status)}`} />
+                          <span className="text-sm truncate">{activeDragCA.title}</span>
+                        </div>
                       </div>
-                    )}
-                    <SortableProcess
-                      process={proc}
-                      processNumber={`${phaseNumber}.${procIndex + 1}`}
-                      showPeople={showPeople}
-                      showSoftware={showSoftware}
-                      showRoles={showRoles}
-                      filterByStatus={filterByStatus}
-                      onPreview={onPreview}
-                      onRemove={() => handleRemoveProcess(proc.id)}
-                      onRefresh={onRefresh}
-                      startTransition={startTransition}
-                    />
-                  </div>
-                ))}
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
               </SortableContext>
             </DndContext>
 
@@ -849,24 +1014,6 @@ function SortableProcess({
 
   const [showAddCA, setShowAddCA] = useState(false);
   const router = useRouter();
-  const caSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
-
-  const handleCoreActivityDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = process.coreActivities.findIndex((ca) => ca.id === active.id);
-    const newIndex = process.coreActivities.findIndex((ca) => ca.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(process.coreActivities, oldIndex, newIndex);
-    const updates = reordered.map((ca, i) => ({ processId: process.id, coreActivityId: ca.id, position: i }));
-    startTransition(() => {
-      reorderCoreActivitiesInProcess(updates).then(() => onRefresh());
-    });
-  };
 
   const handleAddNewCA = (title: string) => {
     startTransition(async () => {
@@ -947,21 +1094,19 @@ function SortableProcess({
 
       {/* Core Activities within this process */}
       <div className="p-2 space-y-1">
-        <DndContext sensors={caSensors} collisionDetection={closestCenter} onDragEnd={handleCoreActivityDragEnd}>
-          <SortableContext items={filteredCAs.map((ca) => ca.id)} strategy={verticalListSortingStrategy}>
-            {filteredCAs.map((ca) => (
-              <SortableCoreActivity
-                key={ca.id}
-                coreActivity={ca}
-                showPeople={showPeople}
-                showSoftware={showSoftware}
-                showRoles={showRoles}
-                onPreview={() => onPreview({ type: 'core_activity', id: ca.id })}
-                onRemove={() => handleRemoveCA(ca.id)}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+        <SortableContext items={filteredCAs.map((ca) => ca.id)} strategy={verticalListSortingStrategy}>
+          {filteredCAs.map((ca) => (
+            <SortableCoreActivity
+              key={ca.id}
+              coreActivity={ca}
+              showPeople={showPeople}
+              showSoftware={showSoftware}
+              showRoles={showRoles}
+              onPreview={() => onPreview({ type: 'core_activity', id: ca.id })}
+              onRemove={() => handleRemoveCA(ca.id)}
+            />
+          ))}
+        </SortableContext>
 
         {/* Add Core Activity */}
         {showAddCA ? (

@@ -48,6 +48,7 @@ export interface WorkflowMapData {
   id: string;
   title: string;
   description: string | null;
+  status: string;
   phases: WorkflowMapPhase[];
 }
 
@@ -62,7 +63,7 @@ export async function getWorkflowMapData(
   // Fetch workflow
   const { data: workflow, error: wfError } = await supabase
     .from('workflows')
-    .select('id, title, description')
+    .select('id, title, description, status')
     .eq('id', workflowId)
     .single();
 
@@ -259,6 +260,7 @@ export async function getWorkflowMapData(
     id: workflow.id,
     title: workflow.title,
     description: workflow.description,
+    status: workflow.status,
     phases: (phases || []).map((phase) => ({
       id: phase.id,
       title: phase.title,
@@ -299,10 +301,10 @@ export async function createWorkflow(
   return { success: true, data: { id: data.id } };
 }
 
-// Update workflow title/description
+// Update workflow title/description/status
 export async function updateWorkflow(
   workflowId: string,
-  updates: { title?: string; description?: string }
+  updates: { title?: string; description?: string; status?: 'Draft' | 'Active' | 'Archived' }
 ): Promise<ActionResult<null>> {
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
@@ -734,6 +736,7 @@ export async function listWorkflows(): Promise<
       id: string;
       title: string;
       description: string | null;
+      status: string;
       created_at: string;
       updated_at: string;
       phase_count: number;
@@ -748,7 +751,7 @@ export async function listWorkflows(): Promise<
 
   const { data: workflows, error: wfError } = await supabase
     .from('workflows')
-    .select('id, title, description, created_at, updated_at')
+    .select('id, title, description, status, created_at, updated_at')
     .order('created_at', { ascending: false });
 
   if (wfError) return { success: false, error: wfError.message };
@@ -815,6 +818,7 @@ export async function listWorkflows(): Promise<
       id: wf.id,
       title: wf.title,
       description: wf.description,
+      status: wf.status,
       created_at: wf.created_at,
       updated_at: wf.updated_at,
       phase_count: phaseCounts.get(wf.id) || 0,

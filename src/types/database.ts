@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_log: {
@@ -1329,6 +1354,36 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          location: string | null
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          location?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          location?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       role_people: {
         Row: {
           created_at: string
@@ -2573,6 +2628,7 @@ export type Database = {
           description: string | null
           id: string
           organization_id: string
+          status: string
           title: string
           updated_at: string
           updated_by: string
@@ -2583,6 +2639,7 @@ export type Database = {
           description?: string | null
           id?: string
           organization_id: string
+          status?: string
           title: string
           updated_at?: string
           updated_by: string
@@ -2593,6 +2650,7 @@ export type Database = {
           description?: string | null
           id?: string
           organization_id?: string
+          status?: string
           title?: string
           updated_at?: string
           updated_by?: string
@@ -2789,6 +2847,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       activity_action: [

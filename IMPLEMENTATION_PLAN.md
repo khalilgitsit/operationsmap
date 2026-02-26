@@ -197,7 +197,7 @@ This document contains the **active and future** implementation phases for Ops M
 
 ---
 
-### Phase 3.5: Workflow & Function Chart Improvements
+### Phase 3.5: Workflow & Function Chart Improvements -- COMPLETED
 
 **Goal:** Add workflow status, enable cross-process drag, improve function chart UX.
 
@@ -205,17 +205,17 @@ This document contains the **active and future** implementation phases for Ops M
 
 **Requirements:**
 
-- [ ] Database migration: Add `status` column to `workflows` table — type `TEXT NOT NULL DEFAULT 'Draft'`, with CHECK constraint for values: `'Draft'`, `'Active'`, `'Archived'`
-- [ ] Update the workflow list page (`workflows/page.tsx`):
+- [x] Database migration: Add `status` column to `workflows` table — type `TEXT NOT NULL DEFAULT 'Draft'`, with CHECK constraint for values: `'Draft'`, `'Active'`, `'Archived'`
+- [x] Update the workflow list page (`workflows/page.tsx`):
   - Add a "Status" column to the table showing a colored badge (Draft = gray, Active = green, Archived = yellow/muted)
   - Also show the status badge next to the workflow title in the same row for quick scanning
   - Add status as a filterable column (filter dropdown in the table header)
   - Add status as a sortable column
-- [ ] In the workflow builder view (`workflows/[id]/page.tsx`):
+- [x] In the workflow builder view (`workflows/[id]/page.tsx`):
   - Show the current status as a badge in the page header
   - Allow changing status via a dropdown (same pattern as record page status fields)
   - Persist status change via server action (update the `workflows` row)
-- [ ] Update search to include workflow status in results
+- [x] Update search to include workflow status in results
 
 **Acceptance criteria:**
 - Workflow list shows a status column with colored badges; user can filter by Draft/Active/Archived
@@ -230,15 +230,15 @@ This document contains the **active and future** implementation phases for Ops M
 
 **Requirements:**
 
-- [ ] Replace the per-process `DndContext` in the workflow builder with a single shared `DndContext` wrapping ALL processes within a phase (or all processes in the entire workflow)
-- [ ] Implement `onDragOver` handler: when a core activity is dragged over a different process container, visually move it to that container (optimistic local state update)
-- [ ] Implement `onDragEnd` handler to persist the cross-process move:
+- [x] Replace the per-process `DndContext` in the workflow builder with a single shared `DndContext` wrapping ALL processes within a phase (or all processes in the entire workflow)
+- [x] Implement `onDragOver` handler: when a core activity is dragged over a different process container, visually move it to that container (optimistic local state update)
+- [x] Implement `onDragEnd` handler to persist the cross-process move:
   - Delete the row from `process_core_activities` for the source process
   - Insert a new row in `process_core_activities` for the target process with the correct position
   - Update positions of remaining CAs in the source process (close the gap)
   - Update positions of CAs in the target process (make room at the drop position)
-- [ ] Show visual feedback during drag: highlight valid drop zones (other process containers), show an insertion line at the drop position
-- [ ] Handle edge case: if a CA is the only item in a process, the source process should show an empty state after the move
+- [x] Show visual feedback during drag: highlight valid drop zones (other process containers), show an insertion line at the drop position
+- [x] Handle edge case: if a CA is the only item in a process, the source process should show an empty state after the move
 
 **Acceptance criteria:**
 - User drags a core activity from Process 1.1 and drops it into Process 1.2 — the CA moves and the change persists after refresh
@@ -251,10 +251,10 @@ This document contains the **active and future** implementation phases for Ops M
 
 **Requirements:**
 
-- [ ] Remove the two "Add Subfunction" ghost buttons that currently appear above and below each subfunction card in every function column (function-chart/page.tsx lines 289-305 and 339-355)
-- [ ] Add a single `+` button at the bottom of each function column, below the last subfunction card — clicking it creates a new subfunction at the bottom of that function's list
-- [ ] Add a small `+` icon in the function column header area (bottom-right corner of the header) — clicking it creates a new subfunction at the top of that function's list
-- [ ] Both buttons open the same `QuickCreatePanel` for subfunctions with `function_id` pre-set
+- [x] Remove the two "Add Subfunction" ghost buttons that currently appear above and below each subfunction card in every function column (function-chart/page.tsx lines 289-305 and 339-355)
+- [x] Add a single `+` button at the bottom of each function column, below the last subfunction card — clicking it creates a new subfunction at the bottom of that function's list
+- [x] Add a small `+` icon in the function column header area (bottom-right corner of the header) — clicking it creates a new subfunction at the top of that function's list
+- [x] Both buttons open the same `QuickCreatePanel` for subfunctions with `function_id` pre-set
 
 **Acceptance criteria:**
 - No "Add Subfunction" buttons floating between subfunction cards
@@ -267,9 +267,9 @@ This document contains the **active and future** implementation phases for Ops M
 
 **Requirements:**
 
-- [ ] Verify that clicking a function title in the function chart column header navigates to `/function-chart/[id]` (the drill-down chart view showing subfunctions as columns and core activities as cards) — this is already implemented, just confirm it works
-- [ ] Make the "View record" link in the function column header less prominent (smaller text, muted color) or rename it to "Edit properties" to clarify that it goes to the generic record page, not the chart
-- [ ] Add a breadcrumb at the top of the function chart drill-down page: "Function Chart > [Function Name]" with "Function Chart" linking back to `/function-chart`
+- [x] Verify that clicking a function title in the function chart column header navigates to `/function-chart/[id]` (the drill-down chart view showing subfunctions as columns and core activities as cards) — this is already implemented, just confirm it works
+- [x] Make the "View record" link in the function column header less prominent (smaller text, muted color) or rename it to "Edit properties" to clarify that it goes to the generic record page, not the chart
+- [x] Add a breadcrumb at the top of the function chart drill-down page: "Function Chart > [Function Name]" with "Function Chart" linking back to `/function-chart`
 
 **Acceptance criteria:**
 - Primary click on function name goes to the chart drill-down

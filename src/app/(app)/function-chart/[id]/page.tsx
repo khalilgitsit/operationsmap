@@ -46,7 +46,8 @@ import {
   reorderCoreActivities,
   type FunctionDetailCoreActivity,
 } from '@/server/actions/function-chart';
-import { Plus, GripVertical, Users, Monitor, Shield, X } from 'lucide-react';
+import { Plus, GripVertical, Users, Monitor, Shield, X, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 
 interface SubfunctionColumn {
   id: string;
@@ -249,7 +250,15 @@ export default function FunctionChartDetailPage() {
   return (
     <TooltipProvider>
       <div>
-        <PageHeader title={funcTitle} backHref="/function-chart" backLabel="Function Chart" />
+        {/* Breadcrumb */}
+        <div className="mb-2 flex items-center gap-1 text-sm text-muted-foreground">
+          <Link href="/function-chart" className="hover:text-foreground transition-colors">
+            Function Chart
+          </Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span className="text-foreground font-medium">{funcTitle}</span>
+        </div>
+        <h1 className="text-2xl font-bold mb-6">{funcTitle}</h1>
 
         {/* Toolbar */}
         <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -364,37 +373,43 @@ export default function FunctionChartDetailPage() {
                 >
                   {/* Subfunction header */}
                   <div className="p-3 border-b bg-muted/50 rounded-t-lg">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <h3 className="font-semibold text-sm truncate">
-                          {col.title}
-                        </h3>
-                      </TooltipTrigger>
-                      {col.description && (
-                        <TooltipContent side="bottom" className="max-w-[300px]">
-                          <p className="text-xs">{col.description}</p>
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="flex-1 min-w-0">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <h3 className="font-semibold text-sm truncate">
+                              {col.title}
+                            </h3>
+                          </TooltipTrigger>
+                          {col.description && (
+                            <TooltipContent side="bottom" className="max-w-[300px]">
+                              <p className="text-xs">{col.description}</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                        <StatusBadge status={col.status} />
+                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-primary flex-shrink-0"
+                            onClick={() =>
+                              setCreateState({
+                                type: 'core_activity',
+                                defaults: { subfunction_id: col.id },
+                              })
+                            }
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs">Add Core Activity</p>
                         </TooltipContent>
-                      )}
-                    </Tooltip>
-                    <StatusBadge status={col.status} />
-                  </div>
-
-                  {/* Add CA at top */}
-                  <div className="px-2 pt-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full h-7 text-xs text-muted-foreground hover:text-primary"
-                      onClick={() =>
-                        setCreateState({
-                          type: 'core_activity',
-                          defaults: { subfunction_id: col.id },
-                        })
-                      }
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Add Core Activity
-                    </Button>
+                      </Tooltip>
+                    </div>
                   </div>
 
                   {/* Core Activity cards */}
@@ -427,7 +442,7 @@ export default function FunctionChartDetailPage() {
                     </SortableContext>
                   </div>
 
-                  {/* Add CA at bottom */}
+                  {/* Single add button at bottom */}
                   <div className="px-2 pb-2">
                     <Button
                       variant="ghost"
