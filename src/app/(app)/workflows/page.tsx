@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { listWorkflows, createWorkflow, deleteWorkflow } from '@/server/actions/workflow';
-import { MarkdownImportDialog } from '@/components/markdown-import-dialog';
+import { ImportDialog } from '@/components/import-dialog';
 
 interface WorkflowItem {
   id: string;
@@ -267,7 +267,7 @@ export default function WorkflowsPage() {
       </AlertDialog>
 
       {/* Markdown Import Dialog */}
-      <MarkdownImportDialog
+      <ImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
         importType="workflow"

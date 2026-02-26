@@ -63,6 +63,7 @@ export interface ParsedProcess {
   trigger?: string;
   end_state?: string;
   description?: string;
+  estimated_duration?: string;
   coreActivities: ParsedCoreActivity[];
 }
 
