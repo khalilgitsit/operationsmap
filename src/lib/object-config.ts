@@ -434,6 +434,13 @@ export function getObjectConfig(type: string): ObjectConfig {
   return config;
 }
 
+/** Document object types that use the Document View (Notion-style editor) */
+export const DOCUMENT_TYPES: ObjectType[] = ['sop', 'checklist', 'template'];
+
+export function isDocumentType(type: string): boolean {
+  return DOCUMENT_TYPES.includes(type as ObjectType);
+}
+
 export function getRecordTitle(record: Record<string, unknown>, config: ObjectConfig): string {
   if (config.titleFields) {
     return config.titleFields.map((f) => record[f] || '').join(' ').trim();

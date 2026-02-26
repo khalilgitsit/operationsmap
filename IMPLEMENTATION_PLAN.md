@@ -732,17 +732,17 @@ Enable markdown import and introduce document management objects.
 - [ ] Activity log integration
 
 #### P2.3 Document View
-- [ ] New view type for SOP, Checklist, Template
-- [ ] Notion-style layout: Title at top → collapsible properties → markdown editor (full width)
-- [ ] Markdown editor with formatting toolbar, live preview
-- [ ] Side panel mode: opens as 1/3 to 1/2 of screen when accessed from association links
-- [ ] Expand to full screen option
-- [ ] Collapse properties to maximize editor space
-- [ ] Paste support: paste list with line breaks → auto-creates checklist items
+- [x] New view type for SOP, Checklist, Template
+- [x] Notion-style layout: Title at top → collapsible properties → markdown editor (full width)
+- [x] Markdown editor with formatting toolbar, live preview
+- [x] Side panel mode: opens as 1/3 to 1/2 of screen when accessed from association links
+- [x] Expand to full screen option
+- [x] Collapse properties to maximize editor space
+- [x] Paste support: paste list with line breaks → auto-creates checklist items
 
 #### P2.4 Navigation Updates
-- [ ] Add "Documents" nav group to left sidebar (SOPs, Checklists, Templates)
-- [ ] Document objects appear in association columns across existing objects
+- [x] Add "Documents" nav group to left sidebar (SOPs, Checklists, Templates)
+- [x] Document objects appear in association columns across existing objects
 
 ### Acceptance Criteria
 - Markdown import creates correct structures from properly formatted markdown files

@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
-import { RecordView } from '@/components/record-view';
+import { DocumentView } from '@/components/document-view';
 import { getObjectConfig } from '@/lib/object-config';
 
 const config = getObjectConfig('template');
@@ -12,7 +12,7 @@ export default function TemplateRecordPage() {
   return (
     <div>
       <PageHeader title="Template" backHref="/templates" backLabel="Templates" />
-      <RecordView config={config} recordId={id} />
+      <DocumentView config={config} recordId={id} />
     </div>
   );
 }
