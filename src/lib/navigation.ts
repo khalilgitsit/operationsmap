@@ -9,6 +9,10 @@ import {
   Users,
   UserCog,
   Monitor,
+  FileText,
+  BookOpen,
+  FileType,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -65,6 +69,15 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Monitor,
     items: [{ label: 'Software', href: '/software', icon: Monitor }],
   },
+  {
+    label: 'Documents',
+    icon: FileText,
+    items: [
+      { label: 'SOPs', href: '/sops', icon: BookOpen },
+      { label: 'Checklists', href: '/checklists', icon: ClipboardList },
+      { label: 'Templates', href: '/templates', icon: FileType },
+    ],
+  },
 ];
 
 // Object types for the "Create New" dropdown
@@ -76,4 +89,7 @@ export const OBJECT_TYPES = [
   { label: 'Person', href: '/people', type: 'person' as const },
   { label: 'Role', href: '/roles', type: 'role' as const },
   { label: 'Software', href: '/software', type: 'software' as const },
+  { label: 'SOP', href: '/sops', type: 'sop' as const },
+  { label: 'Checklist', href: '/checklists', type: 'checklist' as const },
+  { label: 'Template', href: '/templates', type: 'template' as const },
 ] as const;

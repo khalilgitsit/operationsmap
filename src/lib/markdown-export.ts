@@ -301,6 +301,127 @@ export function exportSoftware(
   return lines(...parts);
 }
 
+export function exportSOP(
+  record: RecordData,
+  associations: Record<string, RecordData[]>
+): string {
+  const parts = [
+    `# ${record.title || 'Untitled SOP'}`,
+    '',
+    statusLine(record.status as string),
+    field('Version', record.version),
+    field('Last Reviewed', record.last_reviewed),
+    '',
+    record.trigger ? section('Trigger', 2, record.trigger as string) : '',
+    record.end_state ? section('End State', 2, record.end_state as string) : '',
+    record.content ? section('Content', 2, record.content as string) : '',
+    record.description ? section('Description', 2, record.description as string) : '',
+  ];
+
+  const assocParts: string[] = [];
+  if (associations['sop_core_activities']?.length) {
+    assocParts.push(associationList('Core Activities', associations['sop_core_activities'], getObjectConfig('core_activity')));
+  }
+  if (associations['sop_processes']?.length) {
+    assocParts.push(associationList('Processes', associations['sop_processes'], getObjectConfig('process')));
+  }
+  if (associations['sop_roles']?.length) {
+    assocParts.push(associationList('Roles (Audience)', associations['sop_roles'], getObjectConfig('role')));
+  }
+  if (associations['sop_people']?.length) {
+    assocParts.push(associationList('People (Audience)', associations['sop_people'], getObjectConfig('person')));
+  }
+  if (associations['sop_software']?.length) {
+    assocParts.push(associationList('Software', associations['sop_software'], getObjectConfig('software')));
+  }
+
+  if (assocParts.length) {
+    parts.push(section('Associations', 2, assocParts.join('\n\n')));
+  }
+
+  return lines(...parts);
+}
+
+export function exportChecklist(
+  record: RecordData,
+  associations: Record<string, RecordData[]>
+): string {
+  const parts = [
+    `# ${record.title || 'Untitled Checklist'}`,
+    '',
+    statusLine(record.status as string),
+    field('Version', record.version),
+    field('Last Reviewed', record.last_reviewed),
+    '',
+    record.content ? section('Content', 2, record.content as string) : '',
+    record.description ? section('Description', 2, record.description as string) : '',
+  ];
+
+  const assocParts: string[] = [];
+  if (associations['checklist_core_activities']?.length) {
+    assocParts.push(associationList('Core Activities', associations['checklist_core_activities'], getObjectConfig('core_activity')));
+  }
+  if (associations['checklist_processes']?.length) {
+    assocParts.push(associationList('Processes', associations['checklist_processes'], getObjectConfig('process')));
+  }
+  if (associations['checklist_roles']?.length) {
+    assocParts.push(associationList('Roles (Audience)', associations['checklist_roles'], getObjectConfig('role')));
+  }
+  if (associations['checklist_people']?.length) {
+    assocParts.push(associationList('People (Audience)', associations['checklist_people'], getObjectConfig('person')));
+  }
+
+  if (assocParts.length) {
+    parts.push(section('Associations', 2, assocParts.join('\n\n')));
+  }
+
+  return lines(...parts);
+}
+
+export function exportTemplate(
+  record: RecordData,
+  associations: Record<string, RecordData[]>
+): string {
+  const parts = [
+    `# ${record.title || 'Untitled Template'}`,
+    '',
+    statusLine(record.status as string),
+    field('Type', record.type),
+    field('Location URL', record.location_url),
+    field('Version', record.version),
+    field('Last Reviewed', record.last_reviewed),
+    '',
+    record.content ? section('Content', 2, record.content as string) : '',
+    record.description ? section('Description', 2, record.description as string) : '',
+  ];
+
+  const assocParts: string[] = [];
+  if (associations['template_core_activities']?.length) {
+    assocParts.push(associationList('Core Activities', associations['template_core_activities'], getObjectConfig('core_activity')));
+  }
+  if (associations['template_processes']?.length) {
+    assocParts.push(associationList('Processes', associations['template_processes'], getObjectConfig('process')));
+  }
+  if (associations['template_roles']?.length) {
+    assocParts.push(associationList('Roles (Users)', associations['template_roles'], getObjectConfig('role')));
+  }
+  if (associations['template_software']?.length) {
+    assocParts.push(associationList('Software', associations['template_software'], getObjectConfig('software')));
+  }
+  if (associations['template_sops']?.length) {
+    assocParts.push(associationList('SOPs', associations['template_sops'], getObjectConfig('sop')));
+  }
+  if (associations['template_checklists']?.length) {
+    assocParts.push(associationList('Checklists', associations['template_checklists'], getObjectConfig('checklist')));
+  }
+
+  if (assocParts.length) {
+    parts.push(section('Associations', 2, assocParts.join('\n\n')));
+  }
+
+  return lines(...parts);
+}
+
 // ---- Dispatcher ----
 
 const EXPORTERS: Record<string, (record: RecordData, associations: Record<string, RecordData[]>) => string> = {
@@ -311,6 +432,9 @@ const EXPORTERS: Record<string, (record: RecordData, associations: Record<string
   person: exportPerson,
   role: exportRole,
   software: exportSoftware,
+  sop: exportSOP,
+  checklist: exportChecklist,
+  template: exportTemplate,
 };
 
 export function exportRecord(

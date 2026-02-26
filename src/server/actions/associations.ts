@@ -18,6 +18,9 @@ const TABLE_MAP: Record<string, TableName> = {
   person: 'persons',
   role: 'roles',
   software: 'software',
+  sop: 'sops',
+  checklist: 'checklists',
+  template: 'templates',
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -28,6 +31,9 @@ const TYPE_LABELS: Record<string, string> = {
   person: 'Person',
   role: 'Role',
   software: 'Software',
+  sop: 'SOP',
+  checklist: 'Checklist',
+  template: 'Template',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,7 +57,16 @@ type JunctionTable =
   | 'process_people_involved' | 'process_software'
   | 'core_activity_roles' | 'core_activity_people' | 'core_activity_software'
   | 'role_people' | 'role_subfunctions'
-  | 'software_people' | 'software_roles';
+  | 'software_people' | 'software_roles'
+  // SOP junction tables
+  | 'sop_core_activities' | 'sop_processes' | 'sop_subfunctions' | 'sop_functions'
+  | 'sop_roles' | 'sop_people' | 'sop_software'
+  // Checklist junction tables
+  | 'checklist_core_activities' | 'checklist_processes' | 'checklist_subfunctions'
+  | 'checklist_roles' | 'checklist_people' | 'checklist_software'
+  // Template junction tables
+  | 'template_core_activities' | 'template_processes' | 'template_subfunctions'
+  | 'template_roles' | 'template_software' | 'template_sops' | 'template_checklists';
 
 // Column name mappings per junction table
 const JUNCTION_COLUMNS: Record<JunctionTable, { sourceCol: string; targetCol: string; sourceType: ObjectType; targetType: ObjectType }> = {
@@ -75,6 +90,29 @@ const JUNCTION_COLUMNS: Record<JunctionTable, { sourceCol: string; targetCol: st
   role_subfunctions: { sourceCol: 'role_id', targetCol: 'subfunction_id', sourceType: 'role', targetType: 'subfunction' },
   software_people: { sourceCol: 'software_id', targetCol: 'person_id', sourceType: 'software', targetType: 'person' },
   software_roles: { sourceCol: 'software_id', targetCol: 'role_id', sourceType: 'software', targetType: 'role' },
+  // SOP associations
+  sop_core_activities: { sourceCol: 'sop_id', targetCol: 'core_activity_id', sourceType: 'sop', targetType: 'core_activity' },
+  sop_processes: { sourceCol: 'sop_id', targetCol: 'process_id', sourceType: 'sop', targetType: 'process' },
+  sop_subfunctions: { sourceCol: 'sop_id', targetCol: 'subfunction_id', sourceType: 'sop', targetType: 'subfunction' },
+  sop_functions: { sourceCol: 'sop_id', targetCol: 'function_id', sourceType: 'sop', targetType: 'function' },
+  sop_roles: { sourceCol: 'sop_id', targetCol: 'role_id', sourceType: 'sop', targetType: 'role' },
+  sop_people: { sourceCol: 'sop_id', targetCol: 'person_id', sourceType: 'sop', targetType: 'person' },
+  sop_software: { sourceCol: 'sop_id', targetCol: 'software_id', sourceType: 'sop', targetType: 'software' },
+  // Checklist associations
+  checklist_core_activities: { sourceCol: 'checklist_id', targetCol: 'core_activity_id', sourceType: 'checklist', targetType: 'core_activity' },
+  checklist_processes: { sourceCol: 'checklist_id', targetCol: 'process_id', sourceType: 'checklist', targetType: 'process' },
+  checklist_subfunctions: { sourceCol: 'checklist_id', targetCol: 'subfunction_id', sourceType: 'checklist', targetType: 'subfunction' },
+  checklist_roles: { sourceCol: 'checklist_id', targetCol: 'role_id', sourceType: 'checklist', targetType: 'role' },
+  checklist_people: { sourceCol: 'checklist_id', targetCol: 'person_id', sourceType: 'checklist', targetType: 'person' },
+  checklist_software: { sourceCol: 'checklist_id', targetCol: 'software_id', sourceType: 'checklist', targetType: 'software' },
+  // Template associations
+  template_core_activities: { sourceCol: 'template_id', targetCol: 'core_activity_id', sourceType: 'template', targetType: 'core_activity' },
+  template_processes: { sourceCol: 'template_id', targetCol: 'process_id', sourceType: 'template', targetType: 'process' },
+  template_subfunctions: { sourceCol: 'template_id', targetCol: 'subfunction_id', sourceType: 'template', targetType: 'subfunction' },
+  template_roles: { sourceCol: 'template_id', targetCol: 'role_id', sourceType: 'template', targetType: 'role' },
+  template_software: { sourceCol: 'template_id', targetCol: 'software_id', sourceType: 'template', targetType: 'software' },
+  template_sops: { sourceCol: 'template_id', targetCol: 'sop_id', sourceType: 'template', targetType: 'sop' },
+  template_checklists: { sourceCol: 'template_id', targetCol: 'checklist_id', sourceType: 'template', targetType: 'checklist' },
 };
 
 export async function addAssociation(

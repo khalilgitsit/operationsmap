@@ -18,6 +18,9 @@ const TABLE_MAP: Record<string, TableName> = {
   person: 'persons',
   role: 'roles',
   software: 'software',
+  sop: 'sops',
+  checklist: 'checklists',
+  template: 'templates',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -400,6 +403,9 @@ function getSourceCol(objectType: string): string {
     person: 'person_id',
     role: 'role_id',
     software: 'software_id',
+    sop: 'sop_id',
+    checklist: 'checklist_id',
+    template: 'template_id',
   };
   return map[objectType] || `${objectType}_id`;
 }
@@ -417,6 +423,9 @@ function getTargetCol(targetType: string, junctionTable: string): string {
     person: 'person_id',
     role: 'role_id',
     software: 'software_id',
+    sop: 'sop_id',
+    checklist: 'checklist_id',
+    template: 'template_id',
   };
   return map[targetType] || `${targetType}_id`;
 }

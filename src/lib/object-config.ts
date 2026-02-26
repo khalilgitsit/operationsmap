@@ -74,12 +74,14 @@ export interface ObjectConfig {
 }
 
 const operationalStatuses = ['Draft', 'In Review', 'Active', 'Needs Update', 'Archived'];
+const documentStatuses = ['Draft', 'In Review', 'Published', 'Needs Update', 'Archived'];
 const personStatuses = ['Active', 'Inactive'];
 const roleStatuses = ['Active', 'Inactive', 'Open'];
 const softwareStatuses = ['Active', 'Under Evaluation', 'Deprecated'];
 const pricingModels = ['Per Seat', 'Flat Rate', 'Usage-Based', 'Tiered'];
 const billingCycles = ['Monthly', 'Annual'];
 const workArrangements = ['In-Person', 'Remote', 'Hybrid'];
+const templateTypes = ['Form', 'Template', 'Contract', 'Report', 'Checklist Template'];
 
 export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
   function: {
@@ -108,6 +110,7 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { label: 'Roles', junctionTable: 'function_roles', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
       { label: 'People', junctionTable: 'function_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
       { label: 'Software', junctionTable: 'function_software', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },
+      { label: 'SOPs', junctionTable: 'sop_functions', targetType: 'sop', targetLabel: 'SOPs', targetLabelField: 'title' },
     ],
   },
   subfunction: {
@@ -137,6 +140,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { label: 'People', junctionTable: 'subfunction_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
       { label: 'Software', junctionTable: 'subfunction_software', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },
       { label: 'Processes', junctionTable: 'subfunction_processes', targetType: 'process', targetLabel: 'Processes', targetLabelField: 'title' },
+      { label: 'SOPs', junctionTable: 'sop_subfunctions', targetType: 'sop', targetLabel: 'SOPs', targetLabelField: 'title' },
+      { label: 'Checklists', junctionTable: 'checklist_subfunctions', targetType: 'checklist', targetLabel: 'Checklists', targetLabelField: 'title' },
+      { label: 'Templates', junctionTable: 'template_subfunctions', targetType: 'template', targetLabel: 'Templates', targetLabelField: 'title' },
     ],
   },
   process: {
@@ -170,6 +176,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { label: 'Roles (Involved)', junctionTable: 'process_roles_involved', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
       { label: 'People (Involved)', junctionTable: 'process_people_involved', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
       { label: 'Software', junctionTable: 'process_software', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },
+      { label: 'SOPs', junctionTable: 'sop_processes', targetType: 'sop', targetLabel: 'SOPs', targetLabelField: 'title' },
+      { label: 'Checklists', junctionTable: 'checklist_processes', targetType: 'checklist', targetLabel: 'Checklists', targetLabelField: 'title' },
+      { label: 'Templates', junctionTable: 'template_processes', targetType: 'template', targetLabel: 'Templates', targetLabelField: 'title' },
     ],
   },
   core_activity: {
@@ -198,6 +207,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { label: 'Roles', junctionTable: 'core_activity_roles', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
       { label: 'People', junctionTable: 'core_activity_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
       { label: 'Software', junctionTable: 'core_activity_software', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },
+      { label: 'SOPs', junctionTable: 'sop_core_activities', targetType: 'sop', targetLabel: 'SOPs', targetLabelField: 'title' },
+      { label: 'Checklists', junctionTable: 'checklist_core_activities', targetType: 'checklist', targetLabel: 'Checklists', targetLabelField: 'title' },
+      { label: 'Templates', junctionTable: 'template_core_activities', targetType: 'template', targetLabel: 'Templates', targetLabelField: 'title' },
     ],
   },
   person: {
@@ -237,6 +249,8 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { label: 'Roles', junctionTable: 'role_people', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
       { label: 'Core Activities', junctionTable: 'core_activity_people', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
       { label: 'Software', junctionTable: 'software_people', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },
+      { label: 'SOPs', junctionTable: 'sop_people', targetType: 'sop', targetLabel: 'SOPs', targetLabelField: 'title' },
+      { label: 'Checklists', junctionTable: 'checklist_people', targetType: 'checklist', targetLabel: 'Checklists', targetLabelField: 'title' },
     ],
   },
   role: {
@@ -264,6 +278,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { label: 'People', junctionTable: 'role_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
       { label: 'Subfunctions', junctionTable: 'role_subfunctions', targetType: 'subfunction', targetLabel: 'Subfunctions', targetLabelField: 'title' },
       { label: 'Core Activities', junctionTable: 'core_activity_roles', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
+      { label: 'SOPs', junctionTable: 'sop_roles', targetType: 'sop', targetLabel: 'SOPs', targetLabelField: 'title' },
+      { label: 'Checklists', junctionTable: 'checklist_roles', targetType: 'checklist', targetLabel: 'Checklists', targetLabelField: 'title' },
+      { label: 'Templates', junctionTable: 'template_roles', targetType: 'template', targetLabel: 'Templates', targetLabelField: 'title' },
     ],
   },
   software: {
@@ -297,6 +314,116 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { label: 'People', junctionTable: 'software_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
       { label: 'Roles', junctionTable: 'software_roles', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
       { label: 'Core Activities', junctionTable: 'core_activity_software', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
+      { label: 'SOPs', junctionTable: 'sop_software', targetType: 'sop', targetLabel: 'SOPs', targetLabelField: 'title' },
+      { label: 'Checklists', junctionTable: 'checklist_software', targetType: 'checklist', targetLabel: 'Checklists', targetLabelField: 'title' },
+      { label: 'Templates', junctionTable: 'template_software', targetType: 'template', targetLabel: 'Templates', targetLabelField: 'title' },
+    ],
+  },
+  sop: {
+    type: 'sop',
+    label: 'SOP',
+    labelPlural: 'SOPs',
+    tableName: 'sops',
+    listHref: '/sops',
+    recordHref: (id) => `/sops/${id}`,
+    titleField: 'title',
+    statusField: 'status',
+    statusOptions: documentStatuses,
+    columns: [
+      { key: 'title', label: 'Title', type: 'text', sortable: true, filterable: true, editable: true },
+      { key: 'status', label: 'Status', type: 'select', sortable: true, filterable: true, editable: true, options: documentStatuses },
+      { key: 'content', label: 'Content', type: 'markdown', visible: false },
+      { key: 'trigger', label: 'Trigger', type: 'markdown', visible: false },
+      { key: 'end_state', label: 'End State', type: 'markdown', visible: false },
+      { key: 'version', label: 'Version', type: 'number', sortable: true },
+      { key: 'last_reviewed', label: 'Last Reviewed', type: 'date', sortable: true },
+      { key: 'description', label: 'Description', type: 'markdown', visible: false },
+      { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, visible: false },
+    ],
+    quickCreateFields: [
+      { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'SOP title' },
+    ],
+    associations: [
+      { label: 'Core Activities', junctionTable: 'sop_core_activities', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
+      { label: 'Processes', junctionTable: 'sop_processes', targetType: 'process', targetLabel: 'Processes', targetLabelField: 'title' },
+      { label: 'Subfunctions', junctionTable: 'sop_subfunctions', targetType: 'subfunction', targetLabel: 'Subfunctions', targetLabelField: 'title' },
+      { label: 'Functions', junctionTable: 'sop_functions', targetType: 'function', targetLabel: 'Functions', targetLabelField: 'title' },
+      { label: 'Roles (Audience)', junctionTable: 'sop_roles', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
+      { label: 'People (Audience)', junctionTable: 'sop_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
+      { label: 'Software', junctionTable: 'sop_software', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },
+      { label: 'Templates', junctionTable: 'template_sops', targetType: 'template', targetLabel: 'Templates', targetLabelField: 'title' },
+    ],
+  },
+  checklist: {
+    type: 'checklist',
+    label: 'Checklist',
+    labelPlural: 'Checklists',
+    tableName: 'checklists',
+    listHref: '/checklists',
+    recordHref: (id) => `/checklists/${id}`,
+    titleField: 'title',
+    statusField: 'status',
+    statusOptions: documentStatuses,
+    columns: [
+      { key: 'title', label: 'Title', type: 'text', sortable: true, filterable: true, editable: true },
+      { key: 'status', label: 'Status', type: 'select', sortable: true, filterable: true, editable: true, options: documentStatuses },
+      { key: 'content', label: 'Content', type: 'markdown', visible: false },
+      { key: 'version', label: 'Version', type: 'number', sortable: true },
+      { key: 'last_reviewed', label: 'Last Reviewed', type: 'date', sortable: true },
+      { key: 'description', label: 'Description', type: 'markdown', visible: false },
+      { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, visible: false },
+    ],
+    quickCreateFields: [
+      { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Checklist title' },
+    ],
+    associations: [
+      { label: 'Core Activities', junctionTable: 'checklist_core_activities', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
+      { label: 'Processes', junctionTable: 'checklist_processes', targetType: 'process', targetLabel: 'Processes', targetLabelField: 'title' },
+      { label: 'Subfunctions', junctionTable: 'checklist_subfunctions', targetType: 'subfunction', targetLabel: 'Subfunctions', targetLabelField: 'title' },
+      { label: 'Roles (Audience)', junctionTable: 'checklist_roles', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
+      { label: 'People (Audience)', junctionTable: 'checklist_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
+      { label: 'Software', junctionTable: 'checklist_software', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },
+      { label: 'Templates', junctionTable: 'template_checklists', targetType: 'template', targetLabel: 'Templates', targetLabelField: 'title' },
+    ],
+  },
+  template: {
+    type: 'template',
+    label: 'Template',
+    labelPlural: 'Templates',
+    tableName: 'templates',
+    listHref: '/templates',
+    recordHref: (id) => `/templates/${id}`,
+    titleField: 'title',
+    statusField: 'status',
+    statusOptions: documentStatuses,
+    columns: [
+      { key: 'title', label: 'Title', type: 'text', sortable: true, filterable: true, editable: true },
+      { key: 'status', label: 'Status', type: 'select', sortable: true, filterable: true, editable: true, options: documentStatuses },
+      { key: 'type', label: 'Type', type: 'select', filterable: true, editable: true, options: templateTypes },
+      { key: 'content', label: 'Content', type: 'markdown', visible: false },
+      { key: 'location_url', label: 'Location URL', type: 'url', editable: true },
+      { key: 'responsible_role_id', label: 'Responsible Role', type: 'reference', editable: true, referenceType: 'role' },
+      { key: 'responsible_person_id', label: 'Responsible Person', type: 'reference', editable: true, referenceType: 'person' },
+      { key: 'version', label: 'Version', type: 'number', sortable: true },
+      { key: 'last_reviewed', label: 'Last Reviewed', type: 'date', sortable: true },
+      { key: 'description', label: 'Description', type: 'markdown', visible: false },
+      { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, visible: false },
+    ],
+    quickCreateFields: [
+      { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Template title' },
+      { key: 'type', label: 'Type', type: 'select', options: templateTypes },
+    ],
+    associations: [
+      { label: 'Core Activities', junctionTable: 'template_core_activities', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
+      { label: 'Processes', junctionTable: 'template_processes', targetType: 'process', targetLabel: 'Processes', targetLabelField: 'title' },
+      { label: 'Subfunctions', junctionTable: 'template_subfunctions', targetType: 'subfunction', targetLabel: 'Subfunctions', targetLabelField: 'title' },
+      { label: 'Roles (Users)', junctionTable: 'template_roles', targetType: 'role', targetLabel: 'Roles', targetLabelField: 'title' },
+      { label: 'Software', junctionTable: 'template_software', targetType: 'software', targetLabel: 'Software', targetLabelField: 'title' },
+      { label: 'SOPs', junctionTable: 'template_sops', targetType: 'sop', targetLabel: 'SOPs', targetLabelField: 'title' },
+      { label: 'Checklists', junctionTable: 'template_checklists', targetType: 'checklist', targetLabel: 'Checklists', targetLabelField: 'title' },
     ],
   },
 };
@@ -318,6 +445,7 @@ export const STATUS_COLORS: Record<string, string> = {
   Draft: 'bg-gray-100 text-gray-700',
   'In Review': 'bg-yellow-100 text-yellow-700',
   Active: 'bg-green-100 text-green-700',
+  Published: 'bg-green-100 text-green-700',
   'Needs Update': 'bg-orange-100 text-orange-700',
   Archived: 'bg-red-100 text-red-700',
   Inactive: 'bg-gray-100 text-gray-700',

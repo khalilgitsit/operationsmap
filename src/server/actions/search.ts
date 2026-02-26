@@ -110,6 +110,36 @@ const SEARCH_CONFIGS = [
     statusField: null,
     href: (id: string) => `/workflows/${id}`,
   },
+  {
+    objectType: 'sop',
+    objectLabel: 'SOPs',
+    table: 'sops',
+    titleField: 'title',
+    searchFields: ['title', 'content', 'description', 'trigger', 'end_state'],
+    subtitleField: 'description',
+    statusField: 'status',
+    href: (id: string) => `/sops/${id}`,
+  },
+  {
+    objectType: 'checklist',
+    objectLabel: 'Checklists',
+    table: 'checklists',
+    titleField: 'title',
+    searchFields: ['title', 'content', 'description'],
+    subtitleField: 'description',
+    statusField: 'status',
+    href: (id: string) => `/checklists/${id}`,
+  },
+  {
+    objectType: 'template',
+    objectLabel: 'Templates',
+    table: 'templates',
+    titleField: 'title',
+    searchFields: ['title', 'content', 'description'],
+    subtitleField: 'type',
+    statusField: 'status',
+    href: (id: string) => `/templates/${id}`,
+  },
 ] as const;
 
 export async function globalSearch(

@@ -64,6 +64,275 @@ export type Database = {
           },
         ]
       }
+      checklist_core_activities: {
+        Row: {
+          checklist_id: string
+          core_activity_id: string
+          created_at: string
+          created_by: string
+        }
+        Insert: {
+          checklist_id: string
+          core_activity_id: string
+          created_at?: string
+          created_by: string
+        }
+        Update: {
+          checklist_id?: string
+          core_activity_id?: string
+          created_at?: string
+          created_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_core_activities_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_core_activities_core_activity_id_fkey"
+            columns: ["core_activity_id"]
+            isOneToOne: false
+            referencedRelation: "core_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_people: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          created_by: string
+          person_id: string
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          created_by: string
+          person_id: string
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          created_by?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_people_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_people_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_processes: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          created_by: string
+          process_id: string
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          created_by: string
+          process_id: string
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          created_by?: string
+          process_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_processes_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_processes_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_roles: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          created_by: string
+          role_id: string
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          created_by: string
+          role_id: string
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          created_by?: string
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_roles_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_software: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          created_by: string
+          software_id: string
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          created_by: string
+          software_id: string
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          created_by?: string
+          software_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_software_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_software_software_id_fkey"
+            columns: ["software_id"]
+            isOneToOne: false
+            referencedRelation: "software"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_subfunctions: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          created_by: string
+          subfunction_id: string
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          created_by: string
+          subfunction_id: string
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          created_by?: string
+          subfunction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_subfunctions_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_subfunctions_subfunction_id_fkey"
+            columns: ["subfunction_id"]
+            isOneToOne: false
+            referencedRelation: "subfunctions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklists: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          last_reviewed: string | null
+          organization_id: string
+          status: Database["public"]["Enums"]["document_status"]
+          title: string
+          updated_at: string
+          updated_by: string
+          version: number
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          last_reviewed?: string | null
+          organization_id: string
+          status?: Database["public"]["Enums"]["document_status"]
+          title: string
+          updated_at?: string
+          updated_by: string
+          version?: number
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          last_reviewed?: string | null
+          organization_id?: string
+          status?: Database["public"]["Enums"]["document_status"]
+          title?: string
+          updated_at?: string
+          updated_by?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklists_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       core_activities: {
         Row: {
           created_at: string
@@ -569,63 +838,79 @@ export type Database = {
       }
       notifications: {
         Row: {
+          created_at: string
           id: string
-          user_id: string
+          message: string
           organization_id: string
+          read: boolean
           record_id: string
           record_type: Database["public"]["Enums"]["object_type"]
-          message: string
-          read: boolean
-          created_at: string
+          user_id: string
         }
         Insert: {
+          created_at?: string
           id?: string
-          user_id: string
+          message: string
           organization_id: string
+          read?: boolean
           record_id: string
           record_type: Database["public"]["Enums"]["object_type"]
-          message: string
-          read?: boolean
-          created_at?: string
+          user_id: string
         }
         Update: {
+          created_at?: string
           id?: string
-          user_id?: string
+          message?: string
           organization_id?: string
+          read?: boolean
           record_id?: string
           record_type?: Database["public"]["Enums"]["object_type"]
-          message?: string
-          read?: boolean
-          created_at?: string
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       org_settings: {
         Row: {
+          created_at: string
           id: string
           organization_id: string
           setting_key: string
           setting_value: Json
-          created_at: string
           updated_at: string
         }
         Insert: {
+          created_at?: string
           id?: string
           organization_id: string
           setting_key: string
           setting_value?: Json
-          created_at?: string
           updated_at?: string
         }
         Update: {
+          created_at?: string
           id?: string
           organization_id?: string
           setting_key?: string
           setting_value?: Json
-          created_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "org_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       organizations: {
         Row: {
@@ -1319,6 +1604,317 @@ export type Database = {
           },
         ]
       }
+      sop_core_activities: {
+        Row: {
+          core_activity_id: string
+          created_at: string
+          created_by: string
+          sop_id: string
+        }
+        Insert: {
+          core_activity_id: string
+          created_at?: string
+          created_by: string
+          sop_id: string
+        }
+        Update: {
+          core_activity_id?: string
+          created_at?: string
+          created_by?: string
+          sop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_core_activities_core_activity_id_fkey"
+            columns: ["core_activity_id"]
+            isOneToOne: false
+            referencedRelation: "core_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sop_core_activities_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_functions: {
+        Row: {
+          created_at: string
+          created_by: string
+          function_id: string
+          sop_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          function_id: string
+          sop_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          function_id?: string
+          sop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_functions_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "functions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sop_functions_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_people: {
+        Row: {
+          created_at: string
+          created_by: string
+          person_id: string
+          sop_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          person_id: string
+          sop_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          person_id?: string
+          sop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_people_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sop_people_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_processes: {
+        Row: {
+          created_at: string
+          created_by: string
+          process_id: string
+          sop_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          process_id: string
+          sop_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          process_id?: string
+          sop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_processes_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sop_processes_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          role_id: string
+          sop_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          role_id: string
+          sop_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          role_id?: string
+          sop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sop_roles_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_software: {
+        Row: {
+          created_at: string
+          created_by: string
+          software_id: string
+          sop_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          software_id: string
+          sop_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          software_id?: string
+          sop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_software_software_id_fkey"
+            columns: ["software_id"]
+            isOneToOne: false
+            referencedRelation: "software"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sop_software_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sop_subfunctions: {
+        Row: {
+          created_at: string
+          created_by: string
+          sop_id: string
+          subfunction_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          sop_id: string
+          subfunction_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          sop_id?: string
+          subfunction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sop_subfunctions_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sop_subfunctions_subfunction_id_fkey"
+            columns: ["subfunction_id"]
+            isOneToOne: false
+            referencedRelation: "subfunctions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sops: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          end_state: string | null
+          id: string
+          last_reviewed: string | null
+          organization_id: string
+          status: Database["public"]["Enums"]["document_status"]
+          title: string
+          trigger: string | null
+          updated_at: string
+          updated_by: string
+          version: number
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          end_state?: string | null
+          id?: string
+          last_reviewed?: string | null
+          organization_id: string
+          status?: Database["public"]["Enums"]["document_status"]
+          title: string
+          trigger?: string | null
+          updated_at?: string
+          updated_by: string
+          version?: number
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          end_state?: string | null
+          id?: string
+          last_reviewed?: string | null
+          organization_id?: string
+          status?: Database["public"]["Enums"]["document_status"]
+          title?: string
+          trigger?: string | null
+          updated_at?: string
+          updated_by?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sops_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subfunction_people: {
         Row: {
           created_at: string
@@ -1530,6 +2126,337 @@ export type Database = {
           },
         ]
       }
+      template_checklists: {
+        Row: {
+          checklist_id: string
+          created_at: string
+          created_by: string
+          template_id: string
+        }
+        Insert: {
+          checklist_id: string
+          created_at?: string
+          created_by: string
+          template_id: string
+        }
+        Update: {
+          checklist_id?: string
+          created_at?: string
+          created_by?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_checklists_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_checklists_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_core_activities: {
+        Row: {
+          core_activity_id: string
+          created_at: string
+          created_by: string
+          template_id: string
+        }
+        Insert: {
+          core_activity_id: string
+          created_at?: string
+          created_by: string
+          template_id: string
+        }
+        Update: {
+          core_activity_id?: string
+          created_at?: string
+          created_by?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_core_activities_core_activity_id_fkey"
+            columns: ["core_activity_id"]
+            isOneToOne: false
+            referencedRelation: "core_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_core_activities_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_processes: {
+        Row: {
+          created_at: string
+          created_by: string
+          process_id: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          process_id: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          process_id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_processes_process_id_fkey"
+            columns: ["process_id"]
+            isOneToOne: false
+            referencedRelation: "processes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_processes_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_roles: {
+        Row: {
+          created_at: string
+          created_by: string
+          role_id: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          role_id: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          role_id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_roles_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_software: {
+        Row: {
+          created_at: string
+          created_by: string
+          software_id: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          software_id: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          software_id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_software_software_id_fkey"
+            columns: ["software_id"]
+            isOneToOne: false
+            referencedRelation: "software"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_software_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_sops: {
+        Row: {
+          created_at: string
+          created_by: string
+          sop_id: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          sop_id: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          sop_id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_sops_sop_id_fkey"
+            columns: ["sop_id"]
+            isOneToOne: false
+            referencedRelation: "sops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_sops_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_subfunctions: {
+        Row: {
+          created_at: string
+          created_by: string
+          subfunction_id: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          subfunction_id: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          subfunction_id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_subfunctions_subfunction_id_fkey"
+            columns: ["subfunction_id"]
+            isOneToOne: false
+            referencedRelation: "subfunctions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "template_subfunctions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      templates: {
+        Row: {
+          content: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          last_reviewed: string | null
+          location_url: string | null
+          organization_id: string
+          responsible_person_id: string | null
+          responsible_role_id: string | null
+          status: Database["public"]["Enums"]["document_status"]
+          title: string
+          type: string | null
+          updated_at: string
+          updated_by: string
+          version: number
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          last_reviewed?: string | null
+          location_url?: string | null
+          organization_id: string
+          responsible_person_id?: string | null
+          responsible_role_id?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
+          title: string
+          type?: string | null
+          updated_at?: string
+          updated_by: string
+          version?: number
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          last_reviewed?: string | null
+          location_url?: string | null
+          organization_id?: string
+          responsible_person_id?: string | null
+          responsible_role_id?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
+          title?: string
+          type?: string | null
+          updated_at?: string
+          updated_by?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "templates_responsible_person_id_fkey"
+            columns: ["responsible_person_id"]
+            isOneToOne: false
+            referencedRelation: "persons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "templates_responsible_role_id_fkey"
+            columns: ["responsible_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_organizations: {
         Row: {
           created_at: string
@@ -1691,12 +2618,18 @@ export type Database = {
       activity_action:
         | "created"
         | "updated"
-        | "deleted"
         | "status_changed"
         | "association_added"
         | "association_removed"
         | "comment"
+        | "deleted"
       billing_cycle: "Monthly" | "Annual"
+      document_status:
+        | "Draft"
+        | "In Review"
+        | "Published"
+        | "Needs Update"
+        | "Archived"
       object_type:
         | "function"
         | "subfunction"
@@ -1705,6 +2638,9 @@ export type Database = {
         | "person"
         | "role"
         | "software"
+        | "sop"
+        | "checklist"
+        | "template"
       operational_status:
         | "Draft"
         | "In Review"
@@ -1858,13 +2794,20 @@ export const Constants = {
       activity_action: [
         "created",
         "updated",
-        "deleted",
         "status_changed",
         "association_added",
         "association_removed",
         "comment",
+        "deleted",
       ],
       billing_cycle: ["Monthly", "Annual"],
+      document_status: [
+        "Draft",
+        "In Review",
+        "Published",
+        "Needs Update",
+        "Archived",
+      ],
       object_type: [
         "function",
         "subfunction",
@@ -1873,6 +2816,9 @@ export const Constants = {
         "person",
         "role",
         "software",
+        "sop",
+        "checklist",
+        "template",
       ],
       operational_status: [
         "Draft",
