@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
+import { useState, useEffect, useTransition, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import { ReferenceCombobox } from '@/components/reference-combobox';
 import { PreviewPanel } from '@/components/preview-panel';
 import { QuickCreatePanel } from '@/components/quick-create-panel';
 import { TiptapEditor } from '@/components/tiptap-editor';
+import { VideoEmbed } from '@/components/video-embed';
+import { ChecklistItemsEditor, type ChecklistItem } from '@/components/checklist-items-editor';
 import { ExportButton } from '@/components/export-button';
 import {
   Select,
@@ -83,8 +85,19 @@ interface DocumentViewProps {
   onExpandToFullPage?: () => void;
 }
 
-// Fields that are displayed as dedicated sections, not in the properties grid
-const CONTENT_FIELDS = ['content', 'trigger', 'end_state'];
+// Fields rendered in the document body (not in the properties grid), per object type
+function getBodyFields(type: string): string[] {
+  switch (type) {
+    case 'sop':
+      return ['description', 'trigger', 'end_state', 'content', 'video_url'];
+    case 'checklist':
+      return ['description', 'trigger', 'end_state', 'content'];
+    case 'template':
+      return ['description', 'content'];
+    default:
+      return ['content', 'trigger', 'end_state', 'description'];
+  }
+}
 
 export function DocumentView({ config, recordId, sidePanel = false, onExpandToFullPage }: DocumentViewProps) {
   const router = useRouter();
@@ -237,17 +250,14 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
     });
   };
 
-  // Split columns into property fields and content fields
+  // Split columns into property fields and body fields
+  const bodyFields = useMemo(() => getBodyFields(config.type), [config.type]);
+
   const propertyColumns = useMemo(() =>
     config.columns.filter(
-      (col) => col.key !== config.titleField && !CONTENT_FIELDS.includes(col.key) && col.key !== 'description'
+      (col) => col.key !== config.titleField && !bodyFields.includes(col.key)
     ),
-    [config]
-  );
-
-  const contentColumns = useMemo(() =>
-    config.columns.filter((col) => CONTENT_FIELDS.includes(col.key)),
-    [config]
+    [config, bodyFields]
   );
 
   if (loading) {
@@ -378,7 +388,7 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
             </div>
 
             {/* Status + quick meta row */}
-            <DocumentMetaRow record={record} config={config} />
+            <DocumentMetaRow record={record} config={config} onStatusChange={(newStatus) => handleFieldSave(config.statusField, newStatus)} />
           </div>
 
           {/* Scrollable document body */}
@@ -439,31 +449,13 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
 
               <Separator className="my-4" />
 
-              {/* Content editor sections */}
-              {contentColumns.map((col) => (
-                <div key={col.key} className="mb-6">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                    {col.label}
-                  </h3>
-                  <TiptapEditor
-                    content={(record[col.key] as string) || ''}
-                    onChange={(html) => handleContentSave(col.key, html)}
-                    placeholder={`Add ${col.label.toLowerCase()}...`}
-                  />
-                </div>
-              ))}
-
-              {/* Description editor (if exists and not in content fields) */}
-              {config.columns.find((c) => c.key === 'description') && !CONTENT_FIELDS.includes('description') && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Description</h3>
-                  <TiptapEditor
-                    content={(record.description as string) || ''}
-                    onChange={(html) => handleContentSave('description', html)}
-                    placeholder="Add description..."
-                  />
-                </div>
-              )}
+              {/* Type-specific document body */}
+              <DocumentBodyFields
+                config={config}
+                record={record}
+                onFieldSave={handleFieldSave}
+                onContentSave={handleContentSave}
+              />
             </div>
           </ScrollArea>
         </div>
@@ -600,7 +592,15 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
 
 // --- Sub-components ---
 
-function DocumentMetaRow({ record, config }: { record: Record<string, unknown>; config: ObjectConfig }) {
+function DocumentMetaRow({
+  record,
+  config,
+  onStatusChange,
+}: {
+  record: Record<string, unknown>;
+  config: ObjectConfig;
+  onStatusChange: (status: string) => void;
+}) {
   const status = record[config.statusField] as string | undefined;
   const version = record.version as number | undefined;
   const lastReviewed = record.last_reviewed as string | undefined;
@@ -609,7 +609,26 @@ function DocumentMetaRow({ record, config }: { record: Record<string, unknown>; 
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      {status && <StatusBadge status={status} />}
+      {status && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="cursor-pointer">
+              <StatusBadge status={status} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {config.statusOptions.map((opt) => (
+              <DropdownMenuItem
+                key={opt}
+                onSelect={() => onStatusChange(opt)}
+                className={cn(opt === status && 'font-semibold')}
+              >
+                <StatusBadge status={opt} />
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       {version != null && (
         <span className="text-xs text-muted-foreground">v{version}</span>
       )}
@@ -625,6 +644,275 @@ function DocumentMetaRow({ record, config }: { record: Record<string, unknown>; 
         <span className="text-xs text-muted-foreground">
           Modified {new Date(updatedAt).toLocaleDateString()}
         </span>
+      )}
+    </div>
+  );
+}
+
+function DocumentBodyFields({
+  config,
+  record,
+  onFieldSave,
+  onContentSave,
+}: {
+  config: ObjectConfig;
+  record: Record<string, unknown>;
+  onFieldSave: (field: string, value: unknown) => void;
+  onContentSave: (field: string, html: string) => void;
+}) {
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(() => {
+    if (config.type !== 'checklist') return [];
+    const raw = record.items as { text: string; position: number; id?: string }[] | null;
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((item, idx) => ({
+        id: item.id || crypto.randomUUID(),
+        text: item.text || '',
+        position: item.position ?? idx,
+      }));
+    }
+    // Migrate from freeform content if items column is empty
+    const content = record.content as string | null;
+    if (content && content.trim()) {
+      const lines = content
+        .replace(/<[^>]+>/g, '\n') // strip HTML tags
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length > 0) {
+        return lines.map((text, idx) => ({
+          id: crypto.randomUUID(),
+          text,
+          position: idx,
+        }));
+      }
+    }
+    return [];
+  });
+
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleChecklistChange = useCallback((items: ChecklistItem[]) => {
+    setChecklistItems(items);
+    // Debounced auto-save
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      const serialized = items.map(({ text, position }) => ({ text, position }));
+      onFieldSave('items', serialized);
+    }, 500);
+  }, [onFieldSave]);
+
+  if (config.type === 'sop') {
+    return (
+      <>
+        {/* Description — small textarea */}
+        <SmallTextField
+          label="Description"
+          value={(record.description as string) || ''}
+          onSave={(v) => onFieldSave('description', v)}
+          multiline
+          placeholder="Brief description of this SOP..."
+        />
+
+        {/* Trigger — single line */}
+        <SmallTextField
+          label="Trigger"
+          value={(record.trigger as string) || ''}
+          onSave={(v) => onFieldSave('trigger', v)}
+          placeholder="What triggers this SOP?"
+        />
+
+        {/* End State — single line */}
+        <SmallTextField
+          label="End State"
+          value={(record.end_state as string) || ''}
+          onSave={(v) => onFieldSave('end_state', v)}
+          placeholder="What is the expected outcome?"
+        />
+
+        {/* Content — full TipTap */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Content</h3>
+          <TiptapEditor
+            content={(record.content as string) || ''}
+            onChange={(html) => onContentSave('content', html)}
+            placeholder="Write SOP content..."
+          />
+        </div>
+
+        {/* Video URL + embed */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Video</h3>
+          <SmallTextField
+            value={(record.video_url as string) || ''}
+            onSave={(v) => onFieldSave('video_url', v)}
+            placeholder="Paste a YouTube, Loom, or Google Drive URL..."
+          />
+          {typeof record.video_url === 'string' && record.video_url && (
+            <div className="mt-2">
+              <VideoEmbed url={record.video_url} />
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  if (config.type === 'checklist') {
+    return (
+      <>
+        {/* Description — small textarea */}
+        <SmallTextField
+          label="Description"
+          value={(record.description as string) || ''}
+          onSave={(v) => onFieldSave('description', v)}
+          multiline
+          placeholder="Brief description of this checklist..."
+        />
+
+        {/* Trigger — single line */}
+        <SmallTextField
+          label="Trigger"
+          value={(record.trigger as string) || ''}
+          onSave={(v) => onFieldSave('trigger', v)}
+          placeholder="What triggers this checklist?"
+        />
+
+        {/* End State — single line */}
+        <SmallTextField
+          label="End State"
+          value={(record.end_state as string) || ''}
+          onSave={(v) => onFieldSave('end_state', v)}
+          placeholder="What is the expected outcome?"
+        />
+
+        {/* Checklist Items Editor */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Checklist Items</h3>
+          <ChecklistItemsEditor
+            items={checklistItems}
+            onChange={handleChecklistChange}
+          />
+        </div>
+      </>
+    );
+  }
+
+  if (config.type === 'template') {
+    return (
+      <>
+        {/* Description — small textarea */}
+        <SmallTextField
+          label="Description"
+          value={(record.description as string) || ''}
+          onSave={(v) => onFieldSave('description', v)}
+          multiline
+          placeholder="Brief description of this template..."
+        />
+
+        {/* Content — full TipTap with visible heading */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Template Content</h3>
+          <TiptapEditor
+            content={(record.content as string) || ''}
+            onChange={(html) => onContentSave('content', html)}
+            placeholder="Write template content..."
+          />
+        </div>
+      </>
+    );
+  }
+
+  // Fallback: generic rendering for unknown document types
+  const bodyFieldKeys = getBodyFields(config.type);
+  return (
+    <>
+      {bodyFieldKeys.map((key) => {
+        const col = config.columns.find((c) => c.key === key);
+        if (!col) return null;
+        if (col.type === 'markdown') {
+          return (
+            <div key={key} className="mb-6">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">{col.label}</h3>
+              <TiptapEditor
+                content={(record[key] as string) || ''}
+                onChange={(html) => onContentSave(key, html)}
+                placeholder={`Add ${col.label.toLowerCase()}...`}
+              />
+            </div>
+          );
+        }
+        return (
+          <SmallTextField
+            key={key}
+            label={col.label}
+            value={(record[key] as string) || ''}
+            onSave={(v) => onFieldSave(key, v)}
+            placeholder={`Add ${col.label.toLowerCase()}...`}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function SmallTextField({
+  label,
+  value,
+  onSave,
+  multiline,
+  placeholder,
+}: {
+  label?: string;
+  value: string;
+  onSave: (value: string | null) => void;
+  multiline?: boolean;
+  placeholder?: string;
+}) {
+  const [localValue, setLocalValue] = useState(value);
+  const [dirty, setDirty] = useState(false);
+
+  // Sync if external value changes (e.g., after save)
+  useEffect(() => {
+    if (!dirty) setLocalValue(value);
+  }, [value, dirty]);
+
+  const handleBlur = () => {
+    if (localValue !== value) {
+      onSave(localValue || null);
+    }
+    setDirty(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!multiline && e.key === 'Enter') {
+      e.preventDefault();
+      (e.target as HTMLElement).blur();
+    }
+  };
+
+  return (
+    <div className="mb-4">
+      {label && (
+        <h3 className="text-sm font-medium text-muted-foreground mb-1.5">{label}</h3>
+      )}
+      {multiline ? (
+        <Textarea
+          className="text-sm resize-none"
+          rows={3}
+          value={localValue}
+          onChange={(e) => { setLocalValue(e.target.value); setDirty(true); }}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+        />
+      ) : (
+        <Input
+          className="h-8 text-sm"
+          value={localValue}
+          onChange={(e) => { setLocalValue(e.target.value); setDirty(true); }}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+        />
       )}
     </div>
   );

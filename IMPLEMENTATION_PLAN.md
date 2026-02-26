@@ -277,31 +277,33 @@ This document contains the **active and future** implementation phases for Ops M
 
 ---
 
-### Phase 3.6: Document View Improvements (SOP, Checklist, Template)
+### Phase 3.6: Document View Improvements (SOP, Checklist, Template) ✅ COMPLETED
 
 **Goal:** Refine document-type record pages for better field sizing, usability, and appropriate editing experiences.
 
-#### 3.6.1 SOP Page Improvements
+**Completed:** Phase 3.6 implementation — 2 DB migrations, object config updates, new ChecklistItemsEditor component, refactored DocumentView with per-type field rendering, interactive StatusBadge dropdown.
+
+#### 3.6.1 SOP Page Improvements ✅
 
 **Root cause:** `trigger`, `end_state`, and `description` all render as full TipTap rich text editors. The status badge is display-only with no click handler.
 
 **Requirements:**
 
-- [ ] Modify `DocumentView` to support per-field rendering overrides based on the object type:
+- [x] Modify `DocumentView` to support per-field rendering overrides based on the object type:
   - For SOPs: render `trigger` and `end_state` as small plain text inputs (single line) instead of TipTap editors — remove them from the `CONTENT_FIELDS` array for SOP context
   - For SOPs: render `description` as a small textarea (2-3 rows, plain text or very basic formatting) instead of a full TipTap editor
   - For SOPs: keep `content` as the large TipTap rich editor — this is the main SOP body
-- [ ] Field display order on SOP page: Description (small) → Trigger (single line) → End State (single line) → Content (large editor)
-- [ ] Database migration: Add `video_url` TEXT column to the `sops` table
-- [ ] Add `video_url` to the SOP object config
-- [ ] Render the video URL field as a text input where the user pastes a URL (YouTube, Google Drive, or Loom)
-- [ ] Below the URL input, embed the video natively using an iframe:
+- [x] Field display order on SOP page: Description (small) → Trigger (single line) → End State (single line) → Content (large editor)
+- [x] Database migration: Add `video_url` TEXT column to the `sops` table
+- [x] Add `video_url` to the SOP object config
+- [x] Render the video URL field as a text input where the user pastes a URL (YouTube, Google Drive, or Loom)
+- [x] Below the URL input, embed the video natively using an iframe:
   - YouTube: convert `youtube.com/watch?v=ID` or `youtu.be/ID` to `youtube.com/embed/ID`
   - Loom: convert `loom.com/share/ID` to `loom.com/embed/ID`
   - Google Drive: convert `drive.google.com/file/d/ID/view` to `drive.google.com/file/d/ID/preview`
   - If the URL doesn't match any known pattern, show the raw link
   - Reuse/extend the existing `VideoEmbed` component from the core activity record page
-- [ ] Make the `StatusBadge` in `DocumentMetaRow` interactive for ALL document types (SOP, Checklist, Template):
+- [x] Make the `StatusBadge` in `DocumentMetaRow` interactive for ALL document types (SOP, Checklist, Template):
   - Clicking the status badge opens a dropdown with available status options (Draft, Published, Archived)
   - Selecting a new status immediately persists it via the `updateRecord` server action
   - Badge color updates to reflect the new status
@@ -313,16 +315,16 @@ This document contains the **active and future** implementation phases for Ops M
 
 ---
 
-#### 3.6.2 Checklist Page Improvements
+#### 3.6.2 Checklist Page Improvements ✅
 
 **Requirements:**
 
-- [ ] Make the status badge clickable/toggleable (same as SOP — reuse the interactive StatusBadge from 3.6.1)
-- [ ] Render `description` as a small textarea (2-3 rows, plain text) instead of a full TipTap editor
-- [ ] Database migration: Add `trigger` TEXT and `end_state` TEXT columns to the `checklists` table
-- [ ] Add `trigger` and `end_state` to the checklist object config — render as small plain text inputs on the checklist page
-- [ ] Database migration: Add `items` JSONB column to the `checklists` table for structured checklist items (array of `{ text: string, position: number }`)
-- [ ] Redesign the `content` section as a **checklist items editor** (new component: `ChecklistItemsEditor`):
+- [x] Make the status badge clickable/toggleable (same as SOP — reuse the interactive StatusBadge from 3.6.1)
+- [x] Render `description` as a small textarea (2-3 rows, plain text) instead of a full TipTap editor
+- [x] Database migration: Add `trigger` TEXT and `end_state` TEXT columns to the `checklists` table
+- [x] Add `trigger` and `end_state` to the checklist object config — render as small plain text inputs on the checklist page
+- [x] Database migration: Add `items` JSONB column to the `checklists` table for structured checklist items (array of `{ text: string, position: number }`)
+- [x] Redesign the `content` section as a **checklist items editor** (new component: `ChecklistItemsEditor`):
   - Each item is a single-line plain text input (no rich formatting)
   - Items are displayed as a numbered vertical list
   - Each item row has: a drag handle (left), the item number, the text input (fills remaining width), and a delete (X) button (right)
@@ -332,8 +334,8 @@ This document contains the **active and future** implementation phases for Ops M
   - **Smart paste:** When pasting multi-line text into any item input, detect line breaks and automatically split the pasted text into multiple separate items (one per line). If the resulting total exceeds 10, show the soft warning. All pasted items are added regardless of count.
   - Items are plain text only — no markdown, no bold, no links
   - Auto-save: items persist to the database (the `items` JSONB column) on blur or after reorder, debounced
-- [ ] Field display order on checklist page: Description (small) → Trigger (single line) → End State (single line) → Checklist Items (editor)
-- [ ] Migrate existing `content` data: if any checklists have freeform content, attempt to parse it into line-separated items during migration or show a one-time migration prompt
+- [x] Field display order on checklist page: Description (small) → Trigger (single line) → End State (single line) → Checklist Items (editor)
+- [x] Migrate existing `content` data: if any checklists have freeform content, attempt to parse it into line-separated items during migration or show a one-time migration prompt
 
 **Acceptance criteria:**
 - Checklist page shows a clean, numbered list of items with add/delete/reorder
@@ -344,14 +346,14 @@ This document contains the **active and future** implementation phases for Ops M
 
 ---
 
-#### 3.6.3 Template Page Improvements
+#### 3.6.3 Template Page Improvements ✅
 
 **Requirements:**
 
-- [ ] Reorder fields on the template page: `description` appears above `content`
-- [ ] Render `description` as a small plain textarea (2-3 rows) instead of a full TipTap editor
-- [ ] Label the main content section with a visible heading: "Template Content"
-- [ ] Keep the `content` field as a full TipTap rich editor
+- [x] Reorder fields on the template page: `description` appears above `content`
+- [x] Render `description` as a small plain textarea (2-3 rows) instead of a full TipTap editor
+- [x] Label the main content section with a visible heading: "Template Content"
+- [x] Keep the `content` field as a full TipTap rich editor
 
 **Acceptance criteria:**
 - Template page shows: Description (small) → "Template Content" heading → large TipTap editor

@@ -311,11 +311,14 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          end_state: string | null
           id: string
+          items: Json | null
           last_reviewed: string | null
           organization_id: string
           status: Database["public"]["Enums"]["document_status"]
           title: string
+          trigger: string | null
           updated_at: string
           updated_by: string
           version: number
@@ -325,11 +328,14 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          end_state?: string | null
           id?: string
+          items?: Json | null
           last_reviewed?: string | null
           organization_id: string
           status?: Database["public"]["Enums"]["document_status"]
           title: string
+          trigger?: string | null
           updated_at?: string
           updated_by: string
           version?: number
@@ -339,11 +345,14 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          end_state?: string | null
           id?: string
+          items?: Json | null
           last_reviewed?: string | null
           organization_id?: string
           status?: Database["public"]["Enums"]["document_status"]
           title?: string
+          trigger?: string | null
           updated_at?: string
           updated_by?: string
           version?: number
@@ -1927,6 +1936,7 @@ export type Database = {
           updated_at: string
           updated_by: string
           version: number
+          video_url: string | null
         }
         Insert: {
           content?: string | null
@@ -1943,6 +1953,7 @@ export type Database = {
           updated_at?: string
           updated_by: string
           version?: number
+          video_url?: string | null
         }
         Update: {
           content?: string | null
@@ -1959,6 +1970,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string
           version?: number
+          video_url?: string | null
         }
         Relationships: [
           {
