@@ -163,6 +163,9 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
       person: 'persons',
       role: 'roles',
       software: 'software',
+      sop: 'sops',
+      checklist: 'checklists',
+      template: 'templates',
     };
 
     const titleMap: Record<string, string> = {};
