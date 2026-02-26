@@ -66,7 +66,6 @@ export async function importFunctionChart(
           status: 'Draft',
           description: sf.description || null,
           function_id: funcData.id,
-          position: sfIdx,
           organization_id: organizationId,
           created_by: userId,
           updated_by: userId,
@@ -97,7 +96,6 @@ export async function importFunctionChart(
             trigger: ca.trigger || null,
             end_state: ca.end_state || null,
             subfunction_id: sfData.id,
-            position: caIdx,
             organization_id: organizationId,
             created_by: userId,
             updated_by: userId,
@@ -169,9 +167,6 @@ export async function importWorkflow(
         description: phase.description || null,
         status: 'Draft',
         position: phaseIdx,
-        organization_id: organizationId,
-        created_by: userId,
-        updated_by: userId,
       })
       .select()
       .single();
@@ -274,8 +269,6 @@ export async function importWorkflow(
           from_phase_id: phaseData.id,
           label: handoff.label,
           position: hIdx,
-          organization_id: organizationId,
-          created_by: userId,
         });
 
       if (hError) return { success: false, error: `Failed to create handoff block: ${hError.message}` };
