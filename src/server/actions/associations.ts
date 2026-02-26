@@ -3,10 +3,45 @@
 import { createClient } from '@/lib/supabase/server';
 import { getAuthContextSafe } from '@/lib/auth';
 import { logActivity } from '@/lib/activity-log';
+import { createNotification } from '@/lib/notifications';
 import type { ActionResult } from '@/types/actions';
 import type { Database } from '@/types/database';
 
 type ObjectType = Database['public']['Enums']['object_type'];
+type TableName = keyof Database['public']['Tables'];
+
+const TABLE_MAP: Record<string, TableName> = {
+  function: 'functions',
+  subfunction: 'subfunctions',
+  process: 'processes',
+  core_activity: 'core_activities',
+  person: 'persons',
+  role: 'roles',
+  software: 'software',
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  function: 'Function',
+  subfunction: 'Subfunction',
+  process: 'Process',
+  core_activity: 'Core Activity',
+  person: 'Person',
+  role: 'Role',
+  software: 'Software',
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getRecordTitle(supabase: any, objectType: string, id: string): Promise<string> {
+  const table = TABLE_MAP[objectType];
+  if (!table) return 'a record';
+  const fields = objectType === 'person' ? 'first_name,last_name' : 'title';
+  const { data } = await supabase.from(table).select(fields).eq('id', id).single();
+  if (!data) return 'a record';
+  if (objectType === 'person') {
+    return `${(data as Record<string, string>).first_name || ''} ${(data as Record<string, string>).last_name || ''}`.trim() || 'a person';
+  }
+  return (data as Record<string, string>).title || 'a record';
+}
 
 // Valid junction table names
 type JunctionTable =
@@ -80,6 +115,17 @@ export async function addAssociation(
     newValue: targetId,
   });
 
+  // Notify record owner about the association change
+  const targetTitle = await getRecordTitle(supabase, config.targetType, targetId);
+  const targetLabel = TYPE_LABELS[config.targetType] || config.targetType;
+  await createNotification({
+    organizationId,
+    recordId: sourceId,
+    recordType: config.sourceType,
+    message: `${targetLabel} "${targetTitle}" was added`,
+    excludeUserId: userId,
+  });
+
   return { success: true, data: null };
 }
 
@@ -113,6 +159,17 @@ export async function removeAssociation(
     userId,
     fieldName: table,
     oldValue: targetId,
+  });
+
+  // Notify record owner about the association removal
+  const targetTitle = await getRecordTitle(supabase, config.targetType, targetId);
+  const targetLabel = TYPE_LABELS[config.targetType] || config.targetType;
+  await createNotification({
+    organizationId,
+    recordId: sourceId,
+    recordType: config.sourceType,
+    message: `${targetLabel} "${targetTitle}" was removed`,
+    excludeUserId: userId,
   });
 
   return { success: true, data: null };

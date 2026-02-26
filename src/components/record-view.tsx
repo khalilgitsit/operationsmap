@@ -58,6 +58,7 @@ import {
   searchRecords,
 } from '@/server/actions/generic';
 import { addAssociation, removeAssociation } from '@/server/actions/associations';
+import { getOrgSetting } from '@/server/actions/settings';
 import { cn } from '@/lib/utils';
 
 interface RecordViewProps {
@@ -80,6 +81,16 @@ export function RecordView({ config, recordId }: RecordViewProps) {
   const [previewState, setPreviewState] = useState<{ type: string; id: string } | null>(null);
   const [createState, setCreateState] = useState<{ config: ObjectConfig; defaults?: Record<string, unknown> } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [assocVisibility, setAssocVisibility] = useState<Record<string, Record<string, boolean>> | null>(null);
+
+  const fetchAssocVisibility = useCallback(async () => {
+    const result = await getOrgSetting('association_visibility');
+    if (result.success && result.data) {
+      setAssocVisibility(result.data as Record<string, Record<string, boolean>>);
+    } else {
+      setAssocVisibility({});
+    }
+  }, []);
 
   const fetchRecord = useCallback(async () => {
     setLoading(true);
@@ -117,7 +128,8 @@ export function RecordView({ config, recordId }: RecordViewProps) {
     fetchRecord();
     fetchActivities();
     fetchAssociations();
-  }, [fetchRecord, fetchActivities, fetchAssociations]);
+    fetchAssocVisibility();
+  }, [fetchRecord, fetchActivities, fetchAssociations, fetchAssocVisibility]);
 
   const handleFieldSave = (field: string, value: unknown) => {
     // Core Activity status validation: cannot be Active without subfunction
@@ -355,7 +367,9 @@ export function RecordView({ config, recordId }: RecordViewProps) {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Associations</h2>
           <ScrollArea className="h-[calc(100vh-280px)]">
             <div className="space-y-4 pr-4">
-              {config.associations.map((assoc) => (
+              {config.associations
+                .filter((assoc) => assocVisibility?.[config.type]?.[assoc.junctionTable] !== false)
+                .map((assoc) => (
                 <AssociationSection
                   key={assoc.junctionTable}
                   assoc={assoc}

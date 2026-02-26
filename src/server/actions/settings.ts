@@ -314,6 +314,41 @@ export async function removeUser(targetUserId: string): Promise<ActionResult<nul
   return { success: true, data: null };
 }
 
+// ---- Organization Settings (association visibility, status customization) ----
+
+export async function getOrgSetting(settingKey: string): Promise<ActionResult<unknown>> {
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('org_settings')
+    .select('setting_value')
+    .eq('organization_id', auth.organizationId)
+    .eq('setting_key', settingKey)
+    .single();
+
+  if (error && error.code !== 'PGRST116') return { success: false, error: error.message };
+  return { success: true, data: data ? (data as { setting_value: unknown }).setting_value : null };
+}
+
+export async function saveOrgSetting(settingKey: string, settingValue: unknown): Promise<ActionResult<null>> {
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from('org_settings')
+    .upsert({
+      organization_id: auth.organizationId,
+      setting_key: settingKey,
+      setting_value: settingValue,
+    } as never, { onConflict: 'organization_id,setting_key' });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true, data: null };
+}
+
 // ---- Notifications ----
 
 export interface NotificationItem {
