@@ -1,4 +1,7 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+
+export const ACTIVE_ORG_COOKIE = 'ops-map-active-org';
 
 export interface AuthContext {
   userId: string;
@@ -14,6 +17,7 @@ export class AuthError extends Error {
 
 /**
  * Get the authenticated user's context.
+ * Respects the active workspace cookie if set, falling back to the first org.
  * Throws AuthError if not authenticated — callers should catch this
  * and return an error result instead of letting it propagate.
  */
@@ -29,9 +33,31 @@ export async function getAuthContext(): Promise<AuthContext> {
   }
 
   // Use the service role client for the org lookup to bypass RLS.
-  // The user's JWT may have been refreshed by getUser() but the new token
-  // may not be available for PostgREST queries in the same request cycle.
   const serviceClient = await createServiceClient();
+
+  // Check for active workspace cookie
+  const cookieStore = await cookies();
+  const activeOrgId = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
+
+  if (activeOrgId) {
+    // Verify user still belongs to this org
+    const { data: membership } = await serviceClient
+      .from('user_organizations')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .eq('organization_id', activeOrgId)
+      .single();
+
+    if (membership) {
+      return {
+        userId: user.id,
+        organizationId: membership.organization_id,
+      };
+    }
+    // Cookie references an org user doesn't belong to — fall through to default
+  }
+
+  // Fall back to first org
   const { data: userOrg } = await serviceClient
     .from('user_organizations')
     .select('organization_id')

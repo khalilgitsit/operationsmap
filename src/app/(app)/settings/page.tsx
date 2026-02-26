@@ -5,6 +5,8 @@ import Link from 'next/link';
 export const metadata: Metadata = { title: 'Settings' };
 
 const settingsSections = [
+  { label: 'Profile', href: '/settings/profile', description: 'Manage your display name, photo, and preferences' },
+  { label: 'Security', href: '/settings/security', description: 'Change your password and email address' },
   { label: 'Company Profile', href: '/settings/company', description: 'Manage your organization details' },
   { label: 'Object Configuration', href: '/settings/objects', description: 'Configure object types and custom properties' },
   { label: 'User Management', href: '/settings/users', description: 'Manage team members and permissions' },
