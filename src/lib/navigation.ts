@@ -13,6 +13,7 @@ import {
   BookOpen,
   FileType,
   ClipboardList,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -77,6 +78,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: 'Checklists', href: '/checklists', icon: ClipboardList },
       { label: 'Templates', href: '/templates', icon: FileType },
     ],
+  },
+  {
+    label: 'Tools',
+    icon: Wrench,
+    items: [{ label: 'Tools', href: '/tools', icon: Wrench }],
   },
 ];
 
