@@ -553,7 +553,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
                       {colIndex === 0 ? (
                         <Link
                           href={config.recordHref(row.id as string)}
-                          className="hover:underline"
+                          className="font-medium text-foreground hover:underline hover:text-primary cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (onRowClick) {
@@ -562,7 +562,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
                             }
                           }}
                         >
-                          {renderCellContent(col, row)}
+                          {getRecordTitle(row, config)}
                         </Link>
                       ) : (
                         renderCellContent(col, row)

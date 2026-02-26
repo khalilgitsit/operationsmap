@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,12 +20,13 @@ import {
 import { ExternalLink } from 'lucide-react';
 import {
   type ObjectConfig,
+  type ColumnConfig,
   getRecordTitle,
   getObjectConfig,
   OBJECT_CONFIGS,
   isDocumentType,
 } from '@/lib/object-config';
-import { getRecord, updateRecord, getActivityLog, getAssociations } from '@/server/actions/generic';
+import { getRecord, updateRecord, getActivityLog, getAssociations, searchRecords } from '@/server/actions/generic';
 import { DocumentView } from '@/components/document-view';
 
 interface PreviewPanelProps {
@@ -42,6 +44,7 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
   const [associations, setAssociations] = useState<Record<string, Record<string, unknown>[]>>({});
   const [loading, setLoading] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [referenceLabels, setReferenceLabels] = useState<Record<string, { label: string; href: string }>>({});
   // Stack for navigating between records within the panel
   const [stack, setStack] = useState<{ objectType: string; recordId: string }[]>([]);
 
@@ -68,6 +71,29 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
       if (result.success) assocResults[assoc.junctionTable] = result.data;
     }
     setAssociations(assocResults);
+
+    // Resolve reference field UUIDs to labels
+    if (recordResult.success && recordResult.data && config) {
+      const refCols = config.columns.filter(
+        (col: ColumnConfig) => col.type === 'reference' && col.referenceType && recordResult.data[col.key]
+      );
+      const newLabels: Record<string, { label: string; href: string }> = {};
+      for (const col of refCols) {
+        const refId = recordResult.data[col.key] as string;
+        if (!refId) continue;
+        const refConfig = OBJECT_CONFIGS[col.referenceType!];
+        if (!refConfig) continue;
+        const refResult = await getRecord(col.referenceType!, refId);
+        if (refResult.success && refResult.data) {
+          newLabels[col.key] = {
+            label: getRecordTitle(refResult.data, refConfig),
+            href: refConfig.recordHref(refId),
+          };
+        }
+      }
+      setReferenceLabels(newLabels);
+    }
+
     setLoading(false);
   }, [currentId, currentType, config]);
 
@@ -180,6 +206,18 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
                               new Date(record[col.key] as string).toLocaleDateString()
                             ) : col.type === 'currency' && record[col.key] != null ? (
                               `$${Number(record[col.key]).toLocaleString()}`
+                            ) : col.type === 'reference' && record[col.key] ? (
+                              referenceLabels[col.key] ? (
+                                <Link
+                                  href={referenceLabels[col.key].href}
+                                  className="text-primary hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {referenceLabels[col.key].label}
+                                </Link>
+                              ) : (
+                                <span className="text-muted-foreground italic">Loading…</span>
+                              )
                             ) : (
                               (record[col.key] as string) || '—'
                             )}

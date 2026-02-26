@@ -250,12 +250,13 @@ export function QuickCreatePanel({
           ))}
         </div>
 
-        <div className="flex gap-2 px-6 py-4 border-t">
+        <div className="sticky bottom-0 flex gap-2 px-6 py-4 border-t bg-background shadow-[0_-2px_4px_rgba(0,0,0,0.05)]">
           <Button
             className="flex-1"
             onClick={() => handleCreate(false)}
             disabled={isPending}
           >
+            {isPending && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
             {isPending ? 'Creating...' : 'Create'}
           </Button>
           <Button
@@ -264,6 +265,7 @@ export function QuickCreatePanel({
             onClick={() => handleCreate(true)}
             disabled={isPending}
           >
+            {isPending && <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
             Create & Add Another
           </Button>
         </div>
