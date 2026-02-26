@@ -191,6 +191,7 @@ export async function importWorkflow(
           trigger: proc.trigger || null,
           end_state: proc.end_state || null,
           description: proc.description || null,
+          estimated_duration: proc.estimated_duration || null,
           organization_id: organizationId,
           created_by: userId,
           updated_by: userId,

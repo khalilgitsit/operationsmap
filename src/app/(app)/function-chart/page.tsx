@@ -59,7 +59,7 @@ import {
 import { toast } from 'sonner';
 import { getFunctionChartExportData } from '@/server/actions/export';
 import { exportFunctionChart, downloadMarkdown, copyToClipboard } from '@/lib/markdown-export';
-import { MarkdownImportDialog } from '@/components/markdown-import-dialog';
+import { ImportDialog } from '@/components/import-dialog';
 
 type SortMode = 'custom' | 'az' | 'za';
 
@@ -392,7 +392,7 @@ export default function FunctionChartPage() {
         )}
 
         {/* Markdown Import Dialog */}
-        <MarkdownImportDialog
+        <ImportDialog
           open={importOpen}
           onOpenChange={setImportOpen}
           importType="function_chart"

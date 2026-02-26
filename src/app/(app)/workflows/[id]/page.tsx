@@ -80,7 +80,7 @@ import {
 import { searchRecords } from '@/server/actions/generic';
 import { getWorkflowExportData } from '@/server/actions/export';
 import { exportWorkflow, downloadMarkdown, copyToClipboard } from '@/lib/markdown-export';
-import { MarkdownImportDialog } from '@/components/markdown-import-dialog';
+import { ImportDialog } from '@/components/import-dialog';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -474,7 +474,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
         </AlertDialog>
 
         {/* Markdown Import Dialog */}
-        <MarkdownImportDialog
+        <ImportDialog
           open={importOpen}
           onOpenChange={setImportOpen}
           importType="workflow"
