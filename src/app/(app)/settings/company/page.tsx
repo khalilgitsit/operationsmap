@@ -142,7 +142,7 @@ export default function CompanyProfilePage() {
         <div className="space-y-2">
           <Label htmlFor="revenue">Revenue</Label>
           <div className="relative">
-            <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">$</span>
             <Input
               id="revenue"
               type="number"

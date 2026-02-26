@@ -314,6 +314,24 @@ export async function removeUser(targetUserId: string): Promise<ActionResult<nul
   return { success: true, data: null };
 }
 
+// ---- Current User Role ----
+
+export async function getCurrentUserRole(): Promise<ActionResult<'admin' | 'member'>> {
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const serviceClient = await createServiceClient();
+
+  const { data } = await serviceClient
+    .from('user_organizations')
+    .select('role')
+    .eq('user_id', auth.userId)
+    .eq('organization_id', auth.organizationId)
+    .single();
+
+  if (!data) return { success: false, error: 'No membership found' };
+  return { success: true, data: (data as { role: string }).role as 'admin' | 'member' };
+}
+
 // ---- Organization Settings (association visibility, status customization) ----
 
 export async function getOrgSetting(settingKey: string): Promise<ActionResult<unknown>> {

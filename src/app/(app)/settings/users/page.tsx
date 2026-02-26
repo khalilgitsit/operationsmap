@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Loader2, UserMinus, Shield, User } from 'lucide-react';
+import { Plus, Loader2, Trash2, Shield, User } from 'lucide-react';
 import {
   listOrgUsers,
   inviteUser,
@@ -164,11 +164,12 @@ export default function UserManagementPage() {
                 </Select>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                   onClick={() => setRemoveTarget(user)}
                 >
-                  <UserMinus className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Remove
                 </Button>
               </div>
             ))}
@@ -182,8 +183,8 @@ export default function UserManagementPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove {removeTarget?.email} from the organization?
-              They will lose access to all data.
+              Are you sure you want to remove {removeTarget?.email} from this workspace?
+              They will lose access to all data in this workspace.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

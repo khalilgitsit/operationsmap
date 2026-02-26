@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -40,10 +41,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Plus, Trash2, GripVertical, Lock, Info } from 'lucide-react';
-import { OBJECT_CONFIGS, type ObjectConfig } from '@/lib/object-config';
+import { OBJECT_CONFIGS, type ObjectConfig, type ColumnConfig } from '@/lib/object-config';
 import {
   listCustomProperties,
   createCustomProperty,
@@ -52,6 +59,7 @@ import {
   reorderCustomProperties,
   getOrgSetting,
   saveOrgSetting,
+  getCurrentUserRole,
   type CustomPropertyDef,
 } from '@/server/actions/settings';
 
@@ -63,6 +71,9 @@ const OBJECT_TYPES = [
   { value: 'person', label: 'Person' },
   { value: 'role', label: 'Role' },
   { value: 'software', label: 'Software' },
+  { value: 'sop', label: 'SOP' },
+  { value: 'checklist', label: 'Checklist' },
+  { value: 'template', label: 'Template' },
 ];
 
 const PROPERTY_TYPES = [
@@ -70,29 +81,61 @@ const PROPERTY_TYPES = [
 ];
 
 const OPERATIONAL_TYPES = ['function', 'subfunction', 'process', 'core_activity'];
+const COMPUTED_FIELD_KEYS = ['updated_at', 'created_at'];
 
-// --- Sortable Property Item ---
-function SortablePropertyItem({
+// --- Unified Property type ---
+interface UnifiedProperty {
+  id: string;
+  key: string;
+  label: string;
+  type: string;
+  origin: 'default' | 'custom' | 'computed';
+  required: boolean;
+  options?: string[];
+  isCritical: boolean;
+  customPropertyId?: string;
+}
+
+function getOriginBadge(origin: UnifiedProperty['origin']) {
+  switch (origin) {
+    case 'default':
+      return <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Default</Badge>;
+    case 'custom':
+      return <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 hover:bg-blue-100">Custom</Badge>;
+    case 'computed':
+      return <Badge className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700 hover:bg-purple-100">Computed</Badge>;
+  }
+}
+
+// --- Sortable Unified Property Item ---
+function SortableUnifiedPropertyItem({
   prop,
+  isAdmin,
+  statusFieldKey,
   editingId,
   editName,
   setEditingId,
   setEditName,
   onRename,
   onDelete,
+  onToggleRequired,
 }: {
-  prop: CustomPropertyDef;
+  prop: UnifiedProperty;
+  isAdmin: boolean;
+  statusFieldKey: string;
   editingId: string | null;
   editName: string;
   setEditingId: (id: string | null) => void;
   setEditName: (name: string) => void;
   onRename: (id: string) => void;
-  onDelete: (prop: CustomPropertyDef) => void;
+  onDelete: (prop: UnifiedProperty) => void;
+  onToggleRequired: (prop: UnifiedProperty, required: boolean) => void;
 }) {
   const {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -104,21 +147,31 @@ function SortablePropertyItem({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const isComputed = prop.origin === 'computed';
+  const isCustom = prop.origin === 'custom';
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className="flex items-center gap-2 rounded-md border p-3 bg-background"
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing touch-none"
-        tabIndex={-1}
-      >
-        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-      </button>
-      {editingId === prop.id ? (
+      {isAdmin ? (
+        <button
+          ref={setActivatorNodeRef}
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none"
+          tabIndex={-1}
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+        </button>
+      ) : (
+        <div className="w-4 shrink-0" />
+      )}
+
+      {/* Property name */}
+      {isAdmin && isCustom && editingId === prop.id ? (
         <Input
           autoFocus
           className="h-8 flex-1"
@@ -132,26 +185,75 @@ function SortablePropertyItem({
         />
       ) : (
         <span
-          className="flex-1 text-sm font-medium cursor-pointer hover:text-primary"
-          onClick={() => { setEditingId(prop.id); setEditName(prop.property_name); }}
+          className={`flex-1 text-sm font-medium ${isAdmin && isCustom ? 'cursor-pointer hover:text-primary' : ''}`}
+          onClick={() => {
+            if (isAdmin && isCustom) {
+              setEditingId(prop.id);
+              setEditName(prop.label);
+            }
+          }}
         >
-          {prop.property_name}
+          {prop.label}
         </span>
       )}
-      <Badge variant="secondary" className="text-xs">{prop.property_type}</Badge>
-      {Array.isArray(prop.options) && (
-        <span className="text-xs text-muted-foreground">
-          {prop.options.length} options
+
+      {/* Type badge */}
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
+        {prop.type}
+      </Badge>
+
+      {/* Origin badge */}
+      {getOriginBadge(prop.origin)}
+
+      {/* Options count for select types */}
+      {prop.options && prop.options.length > 0 && (
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+          {prop.options.length} opts
         </span>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0"
-        onClick={() => onDelete(prop)}
-      >
-        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-      </Button>
+
+      {/* Required toggle / Lock icon */}
+      {isComputed ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </TooltipTrigger>
+            <TooltipContent>This field is auto-calculated</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : prop.isCritical ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </TooltipTrigger>
+            <TooltipContent>Status options are managed in the Status Options tab</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        <div className="flex items-center gap-1 shrink-0">
+          <Switch
+            checked={prop.required}
+            onCheckedChange={(checked) => onToggleRequired(prop, checked)}
+            disabled={!isAdmin}
+            className="scale-75"
+          />
+          <span className="text-[10px] text-muted-foreground">Req</span>
+        </div>
+      )}
+
+      {/* Delete button (custom only, admin only) */}
+      {isAdmin && isCustom && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0"
+          onClick={() => onDelete(prop)}
+        >
+          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -243,8 +345,15 @@ function SortableStatusItem({
 export default function ObjectConfigPage() {
   const [isPending, startTransition] = useTransition();
   const [selectedType, setSelectedType] = useState('function');
-  const [properties, setProperties] = useState<CustomPropertyDef[]>([]);
+  const [customProperties, setCustomProperties] = useState<CustomPropertyDef[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // User role
+  const [userRole, setUserRole] = useState<'admin' | 'member'>('member');
+
+  // Property order & required settings (org-level)
+  const [propertyOrder, setPropertyOrder] = useState<Record<string, string[]>>({});
+  const [propertyRequired, setPropertyRequired] = useState<Record<string, Record<string, boolean>>>({});
 
   // Add property form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -253,7 +362,7 @@ export default function ObjectConfigPage() {
   const [newOptions, setNewOptions] = useState('');
 
   // Delete dialog
-  const [deleteTarget, setDeleteTarget] = useState<CustomPropertyDef | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UnifiedProperty | null>(null);
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -274,11 +383,32 @@ export default function ObjectConfigPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  const loadProperties = useCallback(async (type: string) => {
+  const isAdmin = userRole === 'admin';
+  const config = OBJECT_CONFIGS[selectedType] as ObjectConfig | undefined;
+
+  const loadCustomProperties = useCallback(async (type: string) => {
     setLoading(true);
     const result = await listCustomProperties(type);
-    if (result.success) setProperties(result.data);
+    if (result.success) setCustomProperties(result.data);
     setLoading(false);
+  }, []);
+
+  const loadPropertyConfig = useCallback(async () => {
+    const [orderResult, requiredResult] = await Promise.all([
+      getOrgSetting('property_order'),
+      getOrgSetting('property_required'),
+    ]);
+    if (orderResult.success && orderResult.data) {
+      setPropertyOrder(orderResult.data as Record<string, string[]>);
+    }
+    if (requiredResult.success && requiredResult.data) {
+      setPropertyRequired(requiredResult.data as Record<string, Record<string, boolean>>);
+    }
+  }, []);
+
+  const loadUserRole = useCallback(async () => {
+    const result = await getCurrentUserRole();
+    if (result.success) setUserRole(result.data);
   }, []);
 
   const loadStatusConfig = useCallback(async () => {
@@ -300,15 +430,70 @@ export default function ObjectConfigPage() {
   }, []);
 
   useEffect(() => {
-    loadProperties(selectedType);
-  }, [selectedType, loadProperties]);
+    loadCustomProperties(selectedType);
+  }, [selectedType, loadCustomProperties]);
 
   useEffect(() => {
+    loadUserRole();
+    loadPropertyConfig();
     loadStatusConfig();
     loadAssocVisibility();
-  }, [loadStatusConfig, loadAssocVisibility]);
+  }, [loadUserRole, loadPropertyConfig, loadStatusConfig, loadAssocVisibility]);
 
-  // --- Custom Properties handlers ---
+  // --- Build unified property list ---
+  const unifiedProperties = useMemo((): UnifiedProperty[] => {
+    if (!config) return [];
+
+    const statusFieldKey = config.statusField;
+
+    // Build default + computed properties from config columns
+    const defaultProps: UnifiedProperty[] = config.columns.map((col: ColumnConfig) => {
+      const isComputed = COMPUTED_FIELD_KEYS.includes(col.key);
+      const isCritical = col.key === statusFieldKey;
+      const requiredOverride = propertyRequired[selectedType]?.[col.key];
+
+      return {
+        id: `default:${col.key}`,
+        key: col.key,
+        label: col.label,
+        type: col.type,
+        origin: isComputed ? 'computed' as const : 'default' as const,
+        required: requiredOverride ?? false,
+        options: col.options,
+        isCritical,
+      };
+    });
+
+    // Build custom properties
+    const customProps: UnifiedProperty[] = customProperties.map((cp) => ({
+      id: `custom:${cp.id}`,
+      key: `custom_${cp.id}`,
+      label: cp.property_name,
+      type: cp.property_type,
+      origin: 'custom' as const,
+      required: propertyRequired[selectedType]?.[`custom_${cp.id}`] ?? false,
+      options: Array.isArray(cp.options) ? cp.options as string[] : undefined,
+      isCritical: false,
+      customPropertyId: cp.id,
+    }));
+
+    const allProps = [...defaultProps, ...customProps];
+
+    // Apply saved order
+    const savedOrder = propertyOrder[selectedType];
+    if (savedOrder && savedOrder.length > 0) {
+      const orderMap = new Map(savedOrder.map((id, i) => [id, i]));
+      allProps.sort((a, b) => {
+        const aIdx = orderMap.get(a.id) ?? 9999;
+        const bIdx = orderMap.get(b.id) ?? 9999;
+        return aIdx - bIdx;
+      });
+    }
+
+    return allProps;
+  }, [config, customProperties, propertyOrder, propertyRequired, selectedType]);
+
+  // --- Properties handlers ---
   function handleAdd() {
     if (!newName.trim()) return;
     startTransition(async () => {
@@ -322,20 +507,21 @@ export default function ObjectConfigPage() {
         setNewName('');
         setNewType('text');
         setNewOptions('');
-        loadProperties(selectedType);
+        loadCustomProperties(selectedType);
       } else {
         toast.error(result.error);
       }
     });
   }
 
-  function handleDelete(prop: CustomPropertyDef) {
+  function handleDelete(prop: UnifiedProperty) {
+    if (!prop.customPropertyId) return;
     startTransition(async () => {
-      const result = await deleteCustomProperty(prop.id);
+      const result = await deleteCustomProperty(prop.customPropertyId!);
       if (result.success) {
         toast.success('Custom property deleted');
         setDeleteTarget(null);
-        loadProperties(selectedType);
+        loadCustomProperties(selectedType);
       } else {
         toast.error(result.error);
       }
@@ -344,42 +530,60 @@ export default function ObjectConfigPage() {
 
   function handleRename(id: string) {
     if (!editName.trim()) return;
+    // Extract custom property UUID from id (format: "custom:UUID")
+    const customId = id.replace('custom:', '');
     startTransition(async () => {
-      const result = await updateCustomProperty(id, { property_name: editName.trim() });
+      const result = await updateCustomProperty(customId, { property_name: editName.trim() });
       if (result.success) {
         toast.success('Property renamed');
         setEditingId(null);
-        loadProperties(selectedType);
+        loadCustomProperties(selectedType);
       } else {
         toast.error(result.error);
       }
     });
   }
 
-  function handlePropertyDragEnd(event: DragEndEvent) {
+  function handleToggleRequired(prop: UnifiedProperty, required: boolean) {
+    const key = prop.origin === 'custom' ? `custom_${prop.customPropertyId}` : prop.key;
+    const updated = {
+      ...propertyRequired,
+      [selectedType]: {
+        ...(propertyRequired[selectedType] || {}),
+        [key]: required,
+      },
+    };
+    setPropertyRequired(updated);
+    startTransition(async () => {
+      const result = await saveOrgSetting('property_required', updated);
+      if (!result.success) toast.error('Failed to save required setting');
+    });
+  }
+
+  function handleUnifiedDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = properties.findIndex((p) => p.id === active.id);
-    const newIndex = properties.findIndex((p) => p.id === over.id);
-    const reordered = arrayMove(properties, oldIndex, newIndex);
-    setProperties(reordered);
+    const oldIndex = unifiedProperties.findIndex((p) => p.id === active.id);
+    const newIndex = unifiedProperties.findIndex((p) => p.id === over.id);
+    const reordered = arrayMove(unifiedProperties, oldIndex, newIndex);
+
+    // Save order
+    const newOrder = reordered.map((p) => p.id);
+    const updated = { ...propertyOrder, [selectedType]: newOrder };
+    setPropertyOrder(updated);
 
     startTransition(async () => {
-      const result = await reorderCustomProperties(
-        selectedType,
-        reordered.map((p) => p.id)
-      );
+      const result = await saveOrgSetting('property_order', updated);
       if (!result.success) {
-        toast.error('Failed to save order');
-        loadProperties(selectedType);
+        toast.error('Failed to save property order');
+        loadPropertyConfig();
       }
     });
   }
 
   // --- Status customization handlers ---
   const isOperational = OPERATIONAL_TYPES.includes(selectedType);
-  const config = OBJECT_CONFIGS[selectedType] as ObjectConfig | undefined;
 
   function getStatusesForType(type: string): string[] {
     if (OPERATIONAL_TYPES.includes(type)) return config?.statusOptions || [];
@@ -464,6 +668,7 @@ export default function ObjectConfigPage() {
   }
 
   const currentStatuses = getStatusesForType(selectedType);
+  const statusFieldKey = config?.statusField || 'status';
 
   return (
     <div className="max-w-3xl">
@@ -486,42 +691,49 @@ export default function ObjectConfigPage() {
 
         <Tabs defaultValue="properties">
           <TabsList>
-            <TabsTrigger value="properties">Custom Properties</TabsTrigger>
+            <TabsTrigger value="properties">Properties</TabsTrigger>
             <TabsTrigger value="status">Status Options</TabsTrigger>
             <TabsTrigger value="associations">Association Visibility</TabsTrigger>
           </TabsList>
 
-          {/* Custom Properties Tab */}
+          {/* Properties Tab */}
           <TabsContent value="properties" className="space-y-4 mt-4">
+            <div className="flex items-start gap-2 mb-1">
+              <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                All properties for {config?.label}.
+                {isAdmin ? ' Drag to reorder, toggle required status. Order controls display on record pages.' : ' Contact an admin to modify property configuration.'}
+              </p>
+            </div>
+
             {loading ? (
               <div className="space-y-2">
-                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
+                {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-            ) : properties.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">
-                No custom properties defined for this object type.
-              </p>
             ) : (
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragEnd={handlePropertyDragEnd}
+                onDragEnd={handleUnifiedDragEnd}
               >
                 <SortableContext
-                  items={properties.map((p) => p.id)}
+                  items={unifiedProperties.map((p) => p.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="space-y-2">
-                    {properties.map((prop) => (
-                      <SortablePropertyItem
+                  <div className="space-y-1.5">
+                    {unifiedProperties.map((prop) => (
+                      <SortableUnifiedPropertyItem
                         key={prop.id}
                         prop={prop}
+                        isAdmin={isAdmin}
+                        statusFieldKey={statusFieldKey}
                         editingId={editingId}
                         editName={editName}
                         setEditingId={setEditingId}
                         setEditName={setEditName}
                         onRename={handleRename}
                         onDelete={setDeleteTarget}
+                        onToggleRequired={handleToggleRequired}
                       />
                     ))}
                   </div>
@@ -529,48 +741,52 @@ export default function ObjectConfigPage() {
               </DndContext>
             )}
 
-            {showAddForm ? (
-              <div className="rounded-md border p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="Property name"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="flex-1"
-                    autoFocus
-                  />
-                  <Select value={newType} onValueChange={setNewType}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROPERTY_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {(newType === 'select' || newType === 'multi-select') && (
-                  <Input
-                    placeholder="Options (comma-separated)"
-                    value={newOptions}
-                    onChange={(e) => setNewOptions(e.target.value)}
-                  />
+            {isAdmin && (
+              <>
+                {showAddForm ? (
+                  <div className="rounded-md border p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Property name"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        className="flex-1"
+                        autoFocus
+                      />
+                      <Select value={newType} onValueChange={setNewType}>
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PROPERTY_TYPES.map((t) => (
+                            <SelectItem key={t} value={t}>{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {(newType === 'select' || newType === 'multi-select') && (
+                      <Input
+                        placeholder="Options (comma-separated)"
+                        value={newOptions}
+                        onChange={(e) => setNewOptions(e.target.value)}
+                      />
+                    )}
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={handleAdd} disabled={isPending || !newName.trim()}>
+                        Add Property
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Custom Property
+                  </Button>
                 )}
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handleAdd} disabled={isPending || !newName.trim()}>
-                    Add Property
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => setShowAddForm(true)}>
-                <Plus className="h-4 w-4 mr-1" />
-                Add Custom Property
-              </Button>
+              </>
             )}
           </TabsContent>
 
@@ -706,7 +922,7 @@ export default function ObjectConfigPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Custom Property</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &ldquo;{deleteTarget?.property_name}&rdquo;?
+              Are you sure you want to delete &ldquo;{deleteTarget?.label}&rdquo;?
               All values for this property across all records will be permanently lost.
             </AlertDialogDescription>
           </AlertDialogHeader>
