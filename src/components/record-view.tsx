@@ -79,7 +79,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [commentText, setCommentText] = useState('');
   const [previewState, setPreviewState] = useState<{ type: string; id: string } | null>(null);
-  const [createState, setCreateState] = useState<{ config: ObjectConfig; defaults?: Record<string, unknown> } | null>(null);
+  const [createState, setCreateState] = useState<{ config: ObjectConfig; defaults?: Record<string, unknown>; assoc?: AssociationConfig } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [assocVisibility, setAssocVisibility] = useState<Record<string, Record<string, boolean>> | null>(null);
 
@@ -183,24 +183,42 @@ export function RecordView({ config, recordId }: RecordViewProps) {
 
   const handleAddAssociation = async (assoc: AssociationConfig, targetId: string) => {
     if (assoc.junctionTable === '_children') return;
-    await addAssociation(
-      assoc.junctionTable as Parameters<typeof addAssociation>[0],
-      recordId,
-      targetId
-    );
-    fetchAssociations();
-    fetchActivities();
+    try {
+      const result = await addAssociation(
+        assoc.junctionTable as Parameters<typeof addAssociation>[0],
+        recordId,
+        targetId
+      );
+      if (!result.success) {
+        toast.error(`Failed to add association: ${result.error}`);
+        return;
+      }
+      toast.success('Association added');
+      fetchAssociations();
+      fetchActivities();
+    } catch (err) {
+      toast.error(`Failed to add association: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   const handleRemoveAssociation = async (assoc: AssociationConfig, targetId: string) => {
     if (assoc.junctionTable === '_children') return;
-    await removeAssociation(
-      assoc.junctionTable as Parameters<typeof removeAssociation>[0],
-      recordId,
-      targetId
-    );
-    fetchAssociations();
-    fetchActivities();
+    try {
+      const result = await removeAssociation(
+        assoc.junctionTable as Parameters<typeof removeAssociation>[0],
+        recordId,
+        targetId
+      );
+      if (!result.success) {
+        toast.error(`Failed to remove association: ${result.error}`);
+        return;
+      }
+      toast.success('Association removed');
+      fetchAssociations();
+      fetchActivities();
+    } catch (err) {
+      toast.error(`Failed to remove association: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   const toggleSection = (key: string) => {
@@ -386,7 +404,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                       if (config.type === 'function') defaults.function_id = recordId;
                       if (config.type === 'subfunction') defaults.subfunction_id = recordId;
                     }
-                    setCreateState({ config: targetConfig, defaults });
+                    setCreateState({ config: targetConfig, defaults, assoc });
                   }}
                   collapsed={collapsedSections.has(assoc.junctionTable)}
                   onToggle={() => toggleSection(assoc.junctionTable)}
@@ -412,7 +430,14 @@ export function RecordView({ config, recordId }: RecordViewProps) {
           onOpenChange={(open) => !open && setCreateState(null)}
           config={createState.config}
           defaults={createState.defaults}
-          onCreated={() => fetchAssociations()}
+          onCreated={async (newRecord) => {
+            // Auto-link the newly created record to the current record
+            if (createState.assoc && createState.assoc.junctionTable !== '_children' && newRecord?.id) {
+              await handleAddAssociation(createState.assoc, newRecord.id as string);
+            } else {
+              fetchAssociations();
+            }
+          }}
         />
       )}
     </>
@@ -466,6 +491,21 @@ function EditableField({
           rows={4}
           onBlur={(e) => onSave(e.target.value || null)}
           onKeyDown={(e) => {
+            if (e.key === 'Escape') onCancel();
+          }}
+        />
+      );
+
+    case 'date':
+      return (
+        <Input
+          type="date"
+          autoFocus
+          className="h-8"
+          defaultValue={value ? new Date(value as string).toISOString().split('T')[0] : ''}
+          onBlur={(e) => onSave(e.target.value || null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') onSave((e.target as HTMLInputElement).value || null);
             if (e.key === 'Escape') onCancel();
           }}
         />
