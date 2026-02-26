@@ -45,3 +45,6 @@ supabase/.temp/
 
 # claude
 .claude/ralph-loop.local.md
+.claude/skills/
+.agents/
+skills-lock.json
