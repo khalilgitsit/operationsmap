@@ -2,765 +2,562 @@
 
 ## Overview
 
-This document defines the phased implementation plan for Ops Map. The MVP is broken into 7 development phases, each with strict requirements that must be fully met before proceeding to the next phase. Post-MVP phases (2-7 from the Product Roadmap) follow with their own requirements.
+This document contains the **active and future** implementation phases for Ops Map. Completed phases (MVP Phases 1-7 and Post-MVP Phases 2-2.6) are archived in `docs/completed-phases.md`.
 
-**Tech Stack Decision Points** (to be resolved before Phase 1 begins):
-- **Frontend:** Next.js 14+ (App Router) with TypeScript
-- **Database:** PostgreSQL via Supabase (JSONB for custom properties, typed columns for standard properties)
+**Tech Stack:**
+- **Frontend:** Next.js 14+ (App Router) with TypeScript (strict mode)
+- **Database:** PostgreSQL via Supabase (JSONB for custom properties, typed columns for standard)
 - **Auth:** Supabase Auth
-- **API:** tRPC or Next.js Server Actions (internal), REST for future agent API
-- **Real-time:** Supabase Realtime (WebSocket-based) for cross-view updates
-- **Search:** PostgreSQL full-text search (pg_trgm + tsvector) for MVP; evaluate Elasticsearch post-MVP if needed
-- **Markdown:** TipTap or Milkdown editor for rich markdown editing
+- **API:** Next.js Server Actions (internal), REST for future agent API
+- **Real-time:** Supabase Realtime
+- **Search:** PostgreSQL full-text search (pg_trgm + tsvector)
+- **Markdown Editor:** TipTap
 - **Drag-and-drop:** dnd-kit
-- **Styling:** Tailwind CSS + shadcn/ui component library
-- **File Storage:** Supabase Storage (profile photos)
-- **Hosting:** Vercel
+- **Styling:** Tailwind CSS + shadcn/ui
+- **File Storage:** Supabase Storage
+- **Hosting:** Vercel (auto-deploys from main branch)
+
+**Completed phases:** MVP Phases 1-7 (Foundation → Launch), Post-MVP 2-2.6 (Content, Import, Document View, Navigation, YAML Import, Import Skill), Phase 3.1 (Bug Fixes & Critical UX). See `docs/completed-phases.md` for full details.
 
 ---
 
-## MVP Phase 1: Foundation & Infrastructure
+## Post-MVP: Phase 3 — UI/UX Review & Refinement
 
-### Goal
-Establish the project skeleton, database schema, authentication, and API patterns that all subsequent phases build on. No UI beyond auth screens.
-
-### Strict Requirements
-
-#### 1.1 Project Setup
-- [ ] Next.js 14+ App Router project with TypeScript (strict mode)
-- [ ] Tailwind CSS + shadcn/ui installed and configured
-- [ ] ESLint + Prettier configured with consistent rules
-- [ ] Supabase project created and connected
-- [ ] Environment variables configured (.env.local, never committed)
-- [ ] Git repository initialized with .gitignore covering all sensitive files
-- [ ] Folder structure established:
-  ```
-  src/
-    app/           # Next.js routes
-    components/    # Shared UI components
-    lib/           # Utilities, DB client, API helpers
-    types/         # TypeScript type definitions
-    hooks/         # Custom React hooks
-    server/        # Server-side logic (API routes, actions)
-  ```
-
-#### 1.2 Database Schema — Core Tables
-All 7 MVP object tables must be created with their standard typed columns. Every table must include:
-- [ ] `id` (UUID, primary key, auto-generated)
-- [ ] `title` (text, not null) — or `first_name`/`last_name` for Person
-- [ ] `description` (text, nullable) — stored as markdown string
-- [ ] `status` (text, not null, with CHECK constraint for valid values)
-- [ ] `created_at` (timestamptz, default now())
-- [ ] `updated_at` (timestamptz, default now(), auto-updated via trigger)
-- [ ] `created_by` (UUID, FK to auth.users)
-- [ ] `updated_by` (UUID, FK to auth.users)
-- [ ] `organization_id` (UUID, FK to organizations — multi-tenancy from day 1)
-
-**Object-specific columns** (all typed columns per the MVP Specification):
-
-- [ ] **functions** — `owner_id` (FK to persons)
-- [ ] **subfunctions** — `owner_id`, `function_id` (FK to functions, NOT NULL)
-- [ ] **processes** — `owner_person_id`, `owner_role_id`, `trigger`, `end_state`, `estimated_duration`, `last_revised`
-- [ ] **core_activities** — `trigger`, `end_state`, `video_url`, `subfunction_id` (FK to subfunctions, nullable — required for Active status only)
-- [ ] **persons** — `first_name`, `last_name`, `email`, `mobile_phone`, `work_phone`, `personal_phone`, `job_title`, `primary_role_id`, `primary_function_id`, `manager_id` (self-ref FK), `start_date`, `salary`, `location`, `work_arrangement`, `emergency_contact_name`, `emergency_contact_phone`, `emergency_contact_relationship`, `profile_photo_url`
-- [ ] **roles** — `brief_description`, `job_description`, `primary_function_id`
-- [ ] **software** — `category` (text[] array for multi-select), `url`, `monthly_cost`, `annual_cost`, `pricing_model`, `number_of_seats`, `current_discount`, `renewal_date`, `billing_cycle`
-
-#### 1.3 Database Schema — Junction Tables (Associations)
-Every M:M association from the Association Map must have a junction table:
-- [ ] `function_roles`, `function_people`, `function_software`, `function_workflows`
-- [ ] `subfunction_roles`, `subfunction_people`, `subfunction_software`, `subfunction_processes`
-- [ ] `process_core_activities` (with `position` integer for ordering)
-- [ ] `process_subfunctions`, `process_roles_involved`, `process_people_involved`, `process_software`
-- [ ] `core_activity_roles`, `core_activity_people`, `core_activity_software`
-- [ ] `role_people`, `role_subfunctions`
-- [ ] `software_people`, `software_roles`
-- [ ] All junction tables must have: composite primary key, `created_at`, `created_by`, and appropriate indexes
-- [ ] Foreign key constraints with CASCADE on delete for junction tables
-
-#### 1.4 Database Schema — Supporting Tables
-- [ ] **organizations** — `id`, `name`, `industry`, `revenue`, `location`, `key_objectives`, `company_description`, `biggest_pains`, `created_at`
-- [ ] **workflows** — `id`, `title`, `description`, `organization_id`, `created_at`, `updated_at`, `created_by`, `updated_by`
-- [ ] **workflow_phases** — `id`, `workflow_id`, `title`, `description`, `position` (integer for ordering), `status`
-- [ ] **workflow_phase_processes** — `phase_id`, `process_id`, `position` (ordering within phase)
-- [ ] **handoff_blocks** — `id`, `workflow_id`, `label`, `from_phase_id`, `to_phase_id`, `position`
-- [ ] **custom_properties** — `id`, `organization_id`, `object_type` (enum), `property_name`, `property_type` (text/number/date/select/multi_select/url/email/phone/currency/boolean), `options` (JSONB, for select/multi-select), `position` (display order), `created_at`
-- [ ] **custom_property_values** — `id`, `custom_property_id`, `record_id` (UUID), `record_type` (enum matching object_type), `value` (JSONB), `created_at`, `updated_at`
-- [ ] **activity_log** — `id`, `organization_id`, `record_id`, `record_type`, `action` (created/updated/status_changed/association_added/association_removed/comment), `field_name`, `old_value` (JSONB), `new_value` (JSONB), `comment_text`, `user_id`, `created_at`
-
-#### 1.5 Database — Row Level Security (RLS)
-- [ ] RLS enabled on ALL tables
-- [ ] Policies ensuring users can only access data within their organization
-- [ ] Service role key used only for server-side operations
-- [ ] Anon key used only for auth flows
-
-#### 1.6 Database — Triggers & Functions
-- [ ] `updated_at` auto-update trigger on all object tables
-- [ ] Auto-calculated field functions:
-  - Function: `number_of_subfunctions`, `number_of_core_activities`, `number_of_active_core_activities`, `number_of_draft_core_activities`, `number_of_people`, `software_spend`, `people_spend`
-  - Subfunction: same pattern for its calculated fields
-  - Process: `documented` boolean (all CAs active), count fields
-  - Person: `tenure` (years from start_date)
-  - Role: `number_of_people`, `last_hired`
-  - Software: `total_current_cost`
-- [ ] These can be computed columns, database views, or application-level computed fields — but must be consistent and accurate
-
-#### 1.7 Authentication
-- [ ] Supabase Auth configured with email/password signup and login
-- [ ] Login page with email + password
-- [ ] Signup page with email + password + organization name (creates org + user)
-- [ ] Password reset flow (email-based)
-- [ ] Session management with automatic refresh
-- [ ] Protected routes — all app routes require authentication
-- [ ] User linked to organization via `user_organizations` junction table
-- [ ] Two roles: `admin` and `member` (stored in junction table)
-- [ ] Auth middleware that injects `organization_id` into all queries
-
-#### 1.8 API Layer Foundation
-- [ ] Server Actions or tRPC routes established for CRUD on all 7 objects
-- [ ] Input validation using Zod schemas matching database constraints
-- [ ] Error handling pattern: consistent error response format
-- [ ] All mutations log to `activity_log` table
-- [ ] Pagination pattern established (cursor-based preferred)
-- [ ] API responses include computed/calculated fields
-
-### Acceptance Criteria for Phase 1
-- All tables exist with correct schemas, constraints, and indexes
-- RLS policies pass security tests (user A cannot access org B data)
-- Auth flows work end-to-end (signup, login, logout, password reset)
-- CRUD operations work for all 7 objects via API (tested via integration tests or Supabase dashboard)
-- Activity log entries are created for all mutations
-- Custom property values can be stored and retrieved for any object
-- Junction table associations can be created and queried
-- Calculated fields return correct values
+*Based on product review session (Feb 25, 2026). This phase addresses all bug fixes, UX improvements, and missing features identified during hands-on product review. Must be completed before Phase 4 (AI Foundation).*
 
 ---
 
-## MVP Phase 2: Layout Shell & Navigation
+### Phase 3.1: Bug Fixes & Critical UX Issues ✅ COMPLETED
 
-### Goal
-Build the app shell, navigation structure, and routing so all subsequent UI work has a home.
+**Goal:** Fix broken functionality and bugs that prevent core workflows from working correctly.
 
-### Strict Requirements
+**Completed:** PR #10 (commit `6bb996e`) + hotfix commit `278cbd6`. Dogfooded and verified on 2026-02-26.
 
-#### 2.1 App Layout Shell
-- [ ] Persistent top bar across all authenticated pages
-- [ ] Persistent left sidebar (collapsible)
-- [ ] Main content area that fills remaining space
-- [ ] Responsive behavior: sidebar collapses to icon-only on smaller screens
+#### 3.1.1 Text Field Editing — Missing `editable` Config ✅
 
-#### 2.2 Top Bar
-- [ ] App logo (left) — clicks to navigate to Dashboard (`/`)
-- [ ] Global Search input (center-left) — placeholder only in this phase, functional in Phase 6
-- [ ] "Create New" button with dropdown menu listing all 7 object types — clicking one opens Quick-Create Panel (built in Phase 3)
-- [ ] Notifications icon (placeholder, non-functional for MVP)
-- [ ] Settings gear icon — navigates to `/settings`
-- [ ] Profile avatar (right) — dropdown with: user name/email, logout button
-- [ ] Reserved space for Ops Coach icon (empty slot, no functionality)
+- [x] Added `editable: true` to process columns: trigger, end_state, estimated_duration
+- [x] Added `editable: true` to core_activity columns: trigger, end_state, video_url
+- [x] Added description column entry to core_activity config
+- [x] Audited ALL object configs — added editable to function, person, role, software, SOP, checklist, template fields
+- [x] Added date type handler to EditableField component
+- [x] Toast notifications already present for field saves
 
-#### 2.3 Left Sidebar
-- [ ] Collapsible with smooth animation
-- [ ] Icon-only mode when collapsed; full labels when expanded
-- [ ] Hover to temporarily expand when collapsed
-- [ ] Navigation groups with correct icons:
-  - **Home** — `/` (Dashboard)
-  - **Workflows** — `/workflows` (All Workflows), `/processes` (Processes)
-  - **Functions** — `/function-chart` (Function Chart), `/functions` (Functions), `/subfunctions` (Subfunctions)
-  - **Core Activities** — `/core-activities`
-  - **People** — `/people` (People), `/roles` (Roles)
-  - **Resources** — `/software` (Software)
-- [ ] Active state highlighting for current route
-- [ ] Groups are expandable/collapsible
-- [ ] Sidebar state (expanded/collapsed) persisted in localStorage
+#### 3.1.2 Association Creation Issues ✅
 
-#### 2.4 Routing
-- [ ] All routes defined with Next.js App Router
-- [ ] Route structure:
-  ```
-  /                          → Dashboard
-  /function-chart            → Function Chart (top-level)
-  /function-chart/[id]       → Function Chart (drill-down)
-  /workflows                 → All Workflows list
-  /workflows/[id]            → Workflow Map
-  /functions                 → Functions list
-  /functions/[id]            → Function record
-  /subfunctions              → Subfunctions list
-  /subfunctions/[id]         → Subfunction record
-  /processes                 → Processes list
-  /processes/[id]            → Process record
-  /core-activities           → Core Activities list
-  /core-activities/[id]      → Core Activity record
-  /people                    → People list
-  /people/[id]               → Person record
-  /roles                     → Roles list
-  /roles/[id]                → Role record
-  /software                  → Software list
-  /software/[id]             → Software record
-  /settings                  → Settings
-  /settings/company          → Company Profile
-  /settings/objects          → Object Configuration
-  /settings/users            → User Management
-  ```
-- [ ] 404 page for unknown routes
-- [ ] Loading states for all route transitions
+- [x] Added try/catch + toast error notifications around addAssociation/removeAssociation
+- [x] Associations re-fetch immediately after add/remove
+- [x] Fixed "Create New" flow: auto-links newly created records for ALL association types (not just _children)
+- [x] After auto-linking, re-fetches and displays the newly associated item
 
-#### 2.5 Back Navigation
-- [ ] Every record page shows a back link to its parent list view (e.g., Core Activity record → "Core Activities" link)
-- [ ] Function Detail View shows back link to Function Chart top-level
-- [ ] Workflow Map shows back link to All Workflows list
-- [ ] Browser back button works correctly for all navigation paths
-- [ ] No breadcrumbs (explicit design decision)
+#### 3.1.3 Quick-Create Panel Button Visibility ✅
 
-### Acceptance Criteria for Phase 2
-- App shell renders with top bar, sidebar, and content area on all authenticated routes
-- Sidebar collapses/expands with animation and persists state
-- All routes resolve to placeholder pages (can show "Coming Soon" or object type name)
-- Navigation highlights the active route correctly
-- Back links are present and functional on all record-level routes
-- Create New dropdown lists all 7 object types
-- Logout works from profile avatar dropdown
-- Layout is responsive — sidebar collapses on narrow viewports
+- [x] Made button row sticky with `sticky bottom-0`
+- [x] Added shadow separator (`shadow-[0_-2px_4px_rgba(0,0,0,0.05)]`)
+- [x] Added loading spinner on Create button during submission
+- [x] Success/error toast notifications on create
+
+#### 3.1.4 Subfunction Preview Panel Shows Raw UUID ✅
+
+- [x] PreviewPanel resolves reference-type columns to human-readable titles
+- [x] Resolved titles rendered as clickable links to referenced record's page
+- [x] Applied to ALL reference fields (function_id, owner_person_id, etc.)
+- [x] Missing references handled gracefully (shows "—")
+- [x] **Hotfix (278cbd6):** Also added reference resolution to RecordView's renderFieldValue
+
+#### 3.1.5 DataTable Title Column — Misleading Edit Affordance ✅
+
+- [x] Title column (index 0) bypasses inline edit entirely
+- [x] Shows link-style hover (underline, pointer cursor) instead of edit affordance
+- [x] Titles only editable from record page, not list view
 
 ---
 
-## MVP Phase 3: Reusable View Components
+### Phase 3.2: Navigation & Header Improvements ✅ COMPLETED
 
-### Goal
-Build the 4 generic, reusable view components that every object uses. These are the workhorses of the app.
+**Goal:** Fix header layout, add personal account management, and enable workspace switching.
 
-### Strict Requirements
+**Completed:** PR #11 (commit `2e0abc0`), merged to main on 2026-02-26.
 
-#### 3.1 List View Component
-A generic, configurable table component used by all 7 objects.
+#### 3.2.1 Header Right-Alignment ✅
 
-- [ ] Accepts configuration: columns (property name, label, type, sortable, filterable, editable), data source, create action
-- [ ] Column headers with sort indicators (ascending/descending toggle)
-- [ ] Sort by any column
-- [ ] Filter by any property or association:
-  - Text fields: contains/equals filter
-  - Select fields: dropdown filter
-  - Reference fields: dropdown with search (e.g., filter Core Activities by Software)
-  - Status: multi-select filter
-  - Date: range filter
-- [ ] Search within the list (searches across all visible columns)
-- [ ] Column customization: show/hide columns via a column picker dropdown
-- [ ] "Create New" button in list header — opens Quick-Create Panel
-- [ ] Click row title → navigates to full record page
-- [ ] **Inline editing** on supported field types:
-  - Select/dropdown fields (Status, Role, Software, Pricing Model, etc.) — click cell → dropdown
-  - Reference fields (Person, Role, Function, etc.) — click cell → searchable dropdown
-  - Simple text fields — click cell → text input
-  - Phone/email fields — click cell → formatted input with validation
-  - Markdown fields — NOT inline editable (must open full record)
-  - Currency/number fields — click cell → number input
-- [ ] Pagination (infinite scroll or page-based with page size selector)
-- [ ] Empty state: "No [Object Type] found. Create your first one." with create button
-- [ ] Loading skeleton while data fetches
-- [ ] Row count displayed (e.g., "24 Core Activities")
-- [ ] Filtered count shown when filters are active (e.g., "8 of 24 Core Activities")
+- [x] Added `ml-auto` to the right-side items container to push it to the right edge of the header
+- [x] Removed the empty Ops Coach placeholder div — will be re-added when Phase 4 implements the Ops Coach panel
 
-#### 3.2 Record View Component (Three-Column)
-A generic, configurable record page layout used by all 7 objects.
+#### 3.2.2 Personal Settings in Avatar Dropdown ✅
 
-- [ ] Three-column layout: Left (properties) | Middle (activity feed) | Right (associations)
-- [ ] **Left column — Properties:**
-  - Renders typed fields based on object schema
-  - Each field editable inline (click to edit, blur/enter to save)
-  - Field types supported: text, markdown (opens mini-editor), number, currency, date, select, multi-select, email, phone, URL, image upload, person/role/function reference (searchable dropdown)
-  - Markdown fields render as formatted text with an "Edit" button that opens inline editor
-  - Video URL field renders an embedded player (supports YouTube, Vimeo, Loom, Google Drive URLs)
-  - Status field rendered as a colored badge with dropdown to change
-  - Auto-calculated fields rendered as read-only with distinct styling
-  - Custom properties section at the bottom (renders dynamically based on custom_properties config)
-- [ ] **Middle column — Activity Feed:**
-  - Chronological list of activity log entries for this record
-  - Entry types: created, property updated (shows old → new value), status changed, association added, association removed, comment
-  - Each entry shows: user avatar/name, action description, timestamp (relative, with full date on hover)
-  - Comment input at top: text area + submit button
-  - Comments saved to activity_log with `action = 'comment'`
-  - Infinite scroll or "Load more" for long histories
-- [ ] **Right column — Associations:**
-  - Sections for each association type (configured per object)
-  - Each section: header with count, collapsible
-  - Count links to filtered list view (e.g., "34 Core Activities" → `/core-activities?role=[id]`)
-  - Items in each section are clickable → opens Preview Panel
-  - "Add" button on each section → searchable dropdown to add existing record OR "Create New" option that opens Quick-Create Panel
-  - "Remove" action (X button) on each associated item
-  - Ordered associations (e.g., Process → Core Activities) show position and support drag-to-reorder
-  - Sections can be collapsed/expanded; state persisted per user
-- [ ] Export button (top right) — placeholder in this phase, functional in Phase 6
-- [ ] Back link (top left) to parent list view
-- [ ] Delete action (with confirmation dialog) accessible from a "more actions" menu
+- [x] Expanded avatar dropdown with Profile, Security links, workspace section, and Sign out
+- [x] Created `/settings/profile` page with: display name, email (read-only + change link), timezone select (all IANA timezones), location, profile photo upload
+- [x] Created `/settings/security` page with: change password form, change email form (sends confirmation)
+- [x] Created `profiles` table (id FK auth.users, display_name, timezone, location, avatar_url) with RLS policies
+- [x] Created Supabase Storage `avatars` bucket with per-user folder RLS policies (5MB limit, image types only)
+- [x] Top bar avatar shows uploaded profile photo via AvatarImage when available, falls back to initials
+- [x] Settings index page includes Profile and Security cards
+- [x] Profile auto-creates on first access
 
-#### 3.3 Preview Panel Component
-A universal overlay that slides in from the right.
+#### 3.2.3 Workspace Switching ✅
 
-- [ ] Triggered by clicking any linked record from a map view, list view, or association column
-- [ ] Slides in from right edge with smooth animation
-- [ ] Width: ~400px (does not take over full screen)
-- [ ] Content layout (single column, scrollable):
-  1. "Open Full Record" link at top
-  2. Close button (X) at top right
-  3. Properties section (key fields, editable inline)
-  4. Associations section (condensed, clickable)
-  5. Recent activity (last 5 entries, condensed)
-- [ ] Clicking an association within the Preview Panel replaces the panel content with that record's preview
-- [ ] Close button returns to previous view (the panel animates out)
-- [ ] Clicking outside the panel closes it
-- [ ] Escape key closes the panel
-- [ ] Edits made in the Preview Panel save immediately and reflect in the underlying view
-
-#### 3.4 Quick-Create Panel Component
-A universal overlay for creating new records.
-
-- [ ] Triggered by: "Create New" from top bar dropdown, "Create New" from list view, "Create New" from association column
-- [ ] Slides in from right edge (same animation as Preview Panel)
-- [ ] Title: "Create [Object Type]"
-- [ ] Essential fields only (configured per object type):
-  - **Function:** Title
-  - **Subfunction:** Title, Parent Function (required, dropdown)
-  - **Process:** Title, Trigger, End State
-  - **Core Activity:** Title (must start with action verb — validated)
-  - **Person:** First Name, Last Name, Job Title, Email, Primary Role (dropdown, with inline create), Primary Function (dropdown, NO inline create — info tooltip: "Functions should be set intentionally. Manage them in the Function Chart.")
-  - **Role:** Title, Primary Function (dropdown)
-  - **Software:** Title, Category (multi-select)
-- [ ] Status defaults to Draft for operational objects, Active for Person
-- [ ] Two buttons at bottom:
-  - **Create** — saves record, navigates to full record page
-  - **Create and Add Another** — saves record, clears form, stays in current view with panel open
-- [ ] Validation errors shown inline next to fields
-- [ ] Context-aware: when creating from an association column, auto-populates the relevant reference (e.g., creating a Core Activity from a Subfunction's association column auto-sets the Subfunction)
-
-### Acceptance Criteria for Phase 3
-- List View renders correctly for all 7 object types with proper columns
-- Sorting, filtering, and search work on list views
-- Inline editing on list views saves correctly and reflects immediately
-- Record View renders the three-column layout with all property types
-- Activity feed shows accurate history for a record
-- Comments can be added and appear in the feed
-- Associations can be added, removed, and reordered (where applicable)
-- Preview Panel opens, displays record data, and allows inline editing
-- Quick-Create Panel creates records with validation and both button actions work
-- Clicking association counts navigates to filtered list views
-- All components handle empty states and loading states
+- [x] `getAuthContext()` now reads `ops-map-active-org` cookie to determine active workspace
+- [x] Falls back to first org if cookie is missing or references an org user doesn't belong to
+- [x] Avatar dropdown shows all workspaces with checkmark on active, plus "Create new workspace" option
+- [x] Workspace switching sets cookie and refreshes page — all server actions automatically scope to new org
+- [x] Create New Workspace dialog: creates organization + adds user as admin + switches
+- [x] Invitation flow: existing `inviteUser` adds users to org, workspace appears in their switcher automatically
 
 ---
 
-## MVP Phase 4: Function Chart
+### Phase 3.3: Settings Page Improvements ✅ COMPLETED
 
-### Goal
-Build both views of the Function Chart map — the primary organizational visualization.
+**Goal:** Make settings more complete and useful for managing the platform.
 
-### Strict Requirements
+**Completed:** Commit on 2026-02-26.
 
-#### 4.1 Function Chart — Top-Level View (`/function-chart`)
-- [ ] Functions displayed as large vertical block columns arranged horizontally
-- [ ] Horizontal scrolling when Functions exceed viewport width
-- [ ] Each Function block has:
-  - Header showing Function title (clickable → drill-down to Function Detail View)
-  - Function title also clickable to open Function record page
-  - Subfunction cards stacked vertically inside the block (like HubSpot deal cards)
-- [ ] Each Subfunction card shows:
-  - Subfunction title
-  - Status color indicator
-  - People avatars (when toggle is on)
-  - Software icons (when toggle is on)
-  - Role tags (when toggle is on)
-- [ ] **Toggle controls at top of view:**
-  - People toggle (show/hide avatars on Subfunction cards)
-  - Software toggle (show/hide icons)
-  - Roles toggle (show/hide tags)
-  - Multiple toggles can be active simultaneously
-  - Toggle state persisted per user
-- [ ] **Sort control:** Reorder Functions — Alphabetical A→Z, Z→A, or Custom (drag) order
-- [ ] **Hover behaviors:**
-  - Hover on Function block header → tooltip showing Function description
-  - Hover on Subfunction card → tooltip showing Subfunction description
-- [ ] **Click behaviors:**
-  - Click Function block header → navigate to Function Detail View (`/function-chart/[id]`)
-  - Click Function title text → navigate to Function record page (`/functions/[id]`)
-  - Click Subfunction card → open Preview Panel
-- [ ] **Create actions:**
-  - "+" button at end of row → creates new Function (Quick-Create Panel)
-  - "+" button at top and bottom of each Function block → creates new Subfunction (auto-sets parent Function)
-- [ ] **Drag-and-drop:**
-  - Drag Subfunction cards to reorder within a Function block
-  - Drag position saves automatically
-- [ ] **Inline tagging on hover:**
-  - Hovering a Subfunction card shows an "Add Associations" action button
-  - Clicking it opens a compact panel to tag People, Roles, Software without opening full record
-- [ ] Status color coding on Subfunction cards matches the operational lifecycle colors
+#### 3.3.1 Company Profile — Revenue Input Fix ✅
 
-#### 4.2 Function Chart — Function Detail View (`/function-chart/[id]`)
-- [ ] Same visual pattern as top-level but scoped to a single Function
-- [ ] Function name displayed as page title
-- [ ] Subfunctions displayed as vertical columns (side by side)
-- [ ] Core Activities listed under each Subfunction column as items
-- [ ] Each Core Activity item shows:
-  - Title
-  - Status color indicator
-  - People avatars (when toggle on)
-  - Software icons (when toggle on)
-  - Role tags (when toggle on)
-- [ ] **Toggle controls at top:** Same as top-level (People, Software, Roles)
-- [ ] **Filter controls:**
-  - Filter by Software (dropdown) → shows only CAs using that software
-  - Filter by Person (dropdown) → shows only CAs tagged with that person
-  - Filter by Role (dropdown) → shows only CAs tagged with that role
-  - Filters apply across all Subfunction columns
-  - Active filters shown as chips with clear button
-- [ ] **Hover:** Core Activity → tooltip with description
-- [ ] **Click:**
-  - Click Core Activity → Preview Panel
-  - Click Core Activity title → navigate to Core Activity record page
-- [ ] **Create actions:**
-  - "+" at top/bottom of each Subfunction column → create new Core Activity (auto-sets Subfunction)
-- [ ] **Drag-and-drop:**
-  - Reorder Core Activities within a Subfunction column
-  - Move Core Activities between Subfunction columns (changes their primary Subfunction)
-- [ ] Back link → returns to Function Chart top-level view
-- [ ] Visual placeholder in empty Subfunction columns: "Add Core Activities to this Subfunction"
+- [x] Fixed `$` prefix alignment using `top-1/2 -translate-y-1/2` for proper vertical centering
+- [x] Added `pointer-events-none` and `text-sm` for consistent sizing
 
-### Acceptance Criteria for Phase 4
-- Top-level Function Chart renders all Functions as blocks with Subfunction cards
-- Toggles show/hide People, Software, Roles on cards and persist state
-- Sort control reorders Functions (alpha and custom drag)
-- Drill-down view shows single Function with Subfunction columns and Core Activities
-- Filter controls work correctly and filter across all columns
-- Drag-and-drop reorders items and moving CAs between Subfunctions updates the parent
-- All hover tooltips display descriptions
-- Preview Panel opens on card/item click
-- Create actions open Quick-Create with correct context
-- Inline tagging on hover works for Subfunction cards
-- Status colors match operational lifecycle
-- Back navigation works correctly
+#### 3.3.2 User Management — Remove Button Clarity ✅
+
+- [x] Replaced icon-only `UserMinus` button with ghost/destructive `Trash2` icon + "Remove" text label
+- [x] Updated confirmation dialog text: "Are you sure you want to remove [email] from this workspace? They will lose access to all data in this workspace."
+- [x] Confirmation dialog already had Cancel (default) and Remove (destructive) buttons
+
+#### 3.3.3 Object Configuration — Show All Properties ✅
+
+- [x] Redesigned "Custom Properties" tab to show ALL properties (default, custom, computed) for selected object type
+- [x] Renamed tab from "Custom Properties" to "Properties"
+- [x] Each property displays: name/label, type badge, origin badge (Default gray, Custom blue, Computed purple), required toggle
+- [x] Custom properties: fully editable (rename, delete, required toggle)
+- [x] Default properties: required toggle on/off
+- [x] Critical fields (status): locked with tooltip "Status options are managed in the Status Options tab"
+- [x] Computed fields (updated_at, created_at): lock icon with tooltip "This field is auto-calculated"
+- [x] Drag-to-reorder ALL properties (default + custom) with drag handle
+- [x] Order saved per-organization per-object-type via `property_order` org setting
+- [x] Required settings saved per-organization per-object-type via `property_required` org setting
+- [x] Admin-only: modifications and reorder. Members see read-only view
+- [x] Added `getCurrentUserRole` server action for role check
+- [x] Added SOP, Checklist, Template to the object type dropdown
+- [x] Property order set here will be reflected on record pages (see 3.4.4)
+
+**Acceptance criteria:**
+- Admin opens Object Configuration for "Process", sees all fields (title, status, owner_person_id, owner_role_id, trigger, end_state, estimated_duration, updated_at, plus any custom properties)
+- Admin can reorder fields and the new order persists
+- Admin can toggle "required" on trigger field
+- Admin cannot edit the status field options (locked) but can edit options on a custom select field
+- Computed fields like updated_at show a lock icon
 
 ---
 
-## MVP Phase 5: Workflow Map
+### Phase 3.4: Record Page Layout & Field Improvements
 
-### Goal
-Build the Workflow Map builder/viewer — the sequential operational visualization.
+**Goal:** Improve record page layouts, add numbering, field organization, and missing fields/associations.
 
-### Strict Requirements
+#### 3.4.1 Process Record Page — Column Widths & Process Visual
 
-#### 5.1 Workflow List (`/workflows`)
-- [ ] List view of all Workflows using the generic List View component
-- [ ] Columns: Title, Status, Number of Phases, Number of Processes, Number of Core Activities, Last Modified
-- [ ] "Create New Workflow" button → Quick-Create Panel (Title, Description)
-- [ ] Click row → navigate to Workflow Map (`/workflows/[id]`)
+**Root cause:** The current RecordView grid is `grid-cols-[1fr_320px_280px]` (record-view.tsx line 217/253). On a 1280px screen, the left column is ~656px while the activity column is only 320px. The left "About" column is far too wide for a set of label-value fields.
 
-#### 5.2 Workflow Map Builder/Viewer (`/workflows/[id]`)
-- [ ] Structured canvas layout — NOT freeform. Elements snap into place.
-- [ ] **Phases** rendered as large horizontal sections/swim lanes:
-  - Numbered sequentially (Phase 1, Phase 2, ...)
-  - Editable title and description (inline editing — click to edit)
-  - Status color coding on Phase header
-  - "+" buttons above and below each Phase to add new Phases
-- [ ] **Processes** rendered as blocks within Phases:
-  - Numbered within Phase (1.1, 1.2, 2.1, 2.2, ...)
-  - Process title displayed on block header
-  - Click Process title → navigate to Process record page
-  - Click Process block body → Preview Panel
-  - "+" buttons above and below each Process block to add new Processes
-- [ ] **Core Activities** rendered as items within Process blocks:
-  - Listed in order within the Process
-  - Title displayed (with status color indicator)
-  - Click Core Activity → Preview Panel
-  - Click Core Activity title → navigate to Core Activity record page
-- [ ] **Handoff Blocks:**
-  - Insertable between Phases or between Processes
-  - Labeled (e.g., "Handoff: Sales → Project Management")
-  - Editable label
-  - Visually distinct from Process blocks
-- [ ] **Numbering:** Auto-updates when items are reordered. Phases renumber, Processes renumber within Phases.
+**Requirements:**
 
-#### 5.3 Workflow Map — Toggle & Visibility Controls
-- [ ] **Toggle controls at top:**
-  - Roles toggle (show/hide role tags on Core Activities)
-  - People toggle (show/hide people on Core Activities)
-  - Software toggle (show/hide software icons on Core Activities)
-  - Multiple toggles active simultaneously
-  - State persisted per user
-- [ ] **Visibility toggle:**
-  - Show All (all statuses visible)
-  - Active Only (only Active items shown — clean view)
-  - Hide Archived (everything except Archived)
-- [ ] **Status color coding:**
-  - Draft = distinct draft color
-  - In Review = distinct color
-  - Active = default/primary color
-  - Needs Update = distinct warning color
-  - Archived = hidden by default (visible only in "Show All" mode)
+- [ ] Change the RecordView grid layout for process record pages to `grid-cols-[300px_1fr_280px]` — narrower left "About" column, expanded middle column
+- [ ] Add a **process visual** component pinned above the activity feed in the middle column:
+  - **Layout:** Horizontal left-to-right flow of core activity nodes. When the row exceeds the column's max width, items wrap to the next line (flexbox wrap).
+  - **Node content:** Each node shows the core activity's **number** (e.g., "1.1.1", "1.1.2" — see numbering scheme below) and **title**
+  - **Node interaction:** Clicking a node navigates to that core activity's record page
+  - **Add button:** A `+` button after the last node allows creating a new core activity within this process
+  - **Drag-to-reorder:** Users can drag nodes within the visual to reorder core activities. Reordering updates the `process_core_activities` junction table positions AND is reflected in the workflow builder view
+  - **Visual style:** Nodes connected by arrows or lines showing sequence flow. Use a compact card/chip style to fit within the column
+- [ ] **Numbering scheme for core activities:**
+  - In the workflow builder, phases are numbered 1, 2, 3...
+  - Processes within a phase are numbered {phase}.{process} — e.g., 1.1, 1.2, 2.1
+  - Core activities within a process are numbered {phase}.{process}.{ca} — e.g., 1.1.1, 1.1.2, 1.2.1
+  - These numbers appear in the workflow builder view next to each item
+  - These numbers appear on the process visual (middle column of process record page)
+  - These numbers appear on the core activity record page (as part of the title or as a prefix badge)
+  - Numbers are positional (derived from sort order), not stored — they update automatically when items are reordered
+- [ ] This layout change (narrower left, wider middle) applies only to process record pages. Other object record pages keep the current layout unless it also improves their readability.
 
-#### 5.4 Workflow Map — Interaction
-- [ ] **Drag-and-drop:**
-  - Reorder Phases (drag Phase sections up/down)
-  - Reorder Processes within Phases
-  - Reorder Core Activities within Processes
-  - Clear insertion line showing drop target during drag
-  - Snappy, immediate visual feedback
-- [ ] **Inline creation of Core Activities:**
-  - "+" button below last Core Activity in a Process, or between Core Activities
-  - Click "+" → text input appears inline
-  - Type Core Activity title (validated: must start with action verb)
-  - Enter → creates the Core Activity record (Draft status) and adds it to the Process
-  - OR: search icon to find and add an existing Core Activity (searchable dropdown)
-- [ ] **Create empty Process:** Add a Process with no Core Activities as a placeholder
-- [ ] **Keyboard shortcuts:**
-  - Enter = add next item (when focused on a CA or Process input)
-  - Tab = indent/nest (contextual)
-  - Delete/Backspace on empty item = remove it
-- [ ] **Remove items:** X button on hover for Core Activities, Processes, and Phases (with confirmation for Phases)
-- [ ] Back link → returns to All Workflows list
-
-### Acceptance Criteria for Phase 5
-- Workflow list displays all workflows with correct columns
-- Creating a new workflow navigates to the builder
-- Phases, Processes, and Core Activities render correctly in the structured layout
-- Numbering is correct and auto-updates on reorder
-- Drag-and-drop works for Phases, Processes, and Core Activities with visual feedback
-- Toggle controls show/hide Roles, People, Software
-- Visibility toggle filters by status correctly
-- Status colors render correctly for all statuses
-- Inline creation works: type title → creates CA and adds to Process
-- Search-and-add existing CA works
-- Handoff blocks can be created, labeled, and positioned
-- Keyboard shortcuts work as specified
-- All click behaviors (Preview Panel, record navigation) work
-- Empty Processes can be created as placeholders
-- Back navigation returns to All Workflows list
+**Acceptance criteria:**
+- Process record page shows a narrow left column (~300px) with properties, a wide middle column with the process visual and activity feed below it, and the associations panel on the right
+- The process visual shows all associated core activities as numbered nodes in a horizontal flow
+- Dragging a node in the visual reorders the core activities and the change is reflected in the workflow builder
+- Clicking a node navigates to the core activity record page
+- Numbers follow the {phase}.{process}.{ca} format throughout the app
 
 ---
 
-## MVP Phase 6: Global Search, Dashboard & Markdown Export
+#### 3.4.2 Core Activity Record Page — Heading, Description & Associations
 
-### Goal
-Build the remaining unique screens and the export system.
+**Requirements:**
 
-### Strict Requirements
+- [ ] On ALL record pages (RecordView and DocumentView), display the record's actual title (e.g., "Cleanup Transcript") as the primary h1 heading, with the object type label (e.g., "Core Activity") shown as a small muted badge/tag next to the title
+- [ ] For core activity record pages specifically, also show the positional number prefix (e.g., "1.1.3") if the CA is associated with a process within a workflow
+- [ ] Add `description` column to the core_activity config in `object-config.ts`: `{ key: 'description', label: 'Description', type: 'text', editable: true, visible: false }` — the DB column already exists
+- [ ] Add a reverse association for Processes to the core_activity config: `{ label: 'Processes', junctionTable: 'process_core_activities', targetType: 'process', targetLabel: 'Processes', targetLabelField: 'title' }` — the junction table already exists
+- [ ] Add a computed/derived association for Workflows on the core_activity record page: query `process_core_activities → workflow_phase_processes → workflow_phases → workflows` to show which workflow(s) this CA belongs to. This can be a read-only list (not a standard add/remove association) since the relationship is indirect.
 
-#### 6.1 Global Search
-- [ ] Search input in top bar becomes functional
-- [ ] Searches across all 7 object types + Workflows
-- [ ] Results grouped by object type with section headers
-- [ ] Each result shows: title, object type badge, status, and a relevant subtitle (e.g., Subfunction shows parent Function)
-- [ ] Searches title, description, and key text fields
-- [ ] Debounced input (300ms) with loading indicator
-- [ ] Results appear in a dropdown below the search input
-- [ ] Click a result → navigate to that record page
-- [ ] "View all results" link → full search results page (`/search?q=...`)
-- [ ] Full search results page: grouped by object type, each type expandable, pagination per type
-- [ ] Empty state: "No results found for '[query]'"
-- [ ] Keyboard navigation: arrow keys to move through results, Enter to select, Escape to close
-
-#### 6.2 Dashboard (`/`)
-- [ ] **Status Summary Cards** (top section, grid of cards):
-  - Total Core Activities: Active count, Draft count, Needs Update count (each number clickable → filtered list)
-  - Total Processes: Active count, Draft count, "Empty" count (no Core Activities) (each clickable)
-  - Total Functions (clickable → Functions list)
-  - Total Subfunctions (clickable → Subfunctions list)
-- [ ] **Key Metrics** (secondary cards):
-  - Number of People (clickable → People list)
-  - Number of Roles (clickable → Roles list)
-  - Total Software Spend (sum of all Software `total_current_cost`)
-- [ ] **Recent Activity** (feed section):
-  - Last 10 activity log entries across the entire organization
-  - Each entry: user avatar, action description, record title (clickable), timestamp
-- [ ] **Suggested Next Actions** (static/rule-based, not AI):
-  - Generated from data conditions:
-    - "You have X Draft Core Activities — start documenting" (if Draft CAs > 0)
-    - "X Processes have no Core Activities" (if empty Processes exist)
-    - "[Subfunction Name] needs an owner" (if Subfunction has no owner)
-    - "X Core Activities need a primary Subfunction" (if CAs without Subfunction exist)
-  - Each suggestion is clickable → navigates to the relevant list view or record
-  - Suggestions update dynamically as data changes
-- [ ] Responsive grid layout
-- [ ] Loading skeletons for each section
-
-#### 6.3 Markdown Export
-- [ ] Export button consistently placed on every record page and map view (top right area)
-- [ ] Two export options: "Download as .md" and "Copy to Clipboard"
-- [ ] Export content structure per the MVP Specification:
-  - **Core Activity:** Title, description, trigger, end state, status, video URL, all associations (roles, people, software, subfunction, processes)
-  - **Process:** Title, description, trigger, end state, owners, status + all Core Activities with full details (ordered)
-  - **Subfunction:** Title, description, owner, status + all Core Activities
-  - **Function:** Title, description, owner, status + all Subfunctions + all Core Activities
-  - **Workflow:** Title, description + each Phase (title, description) + each Process (full details) + each Core Activity (full details) + handoff labels
-  - **Function Chart (full):** All Functions + all Subfunctions + all Core Activities
-  - **Person:** All properties + all associations
-  - **People (bulk):** Zip of individual markdown files, one per person
-  - **Role:** All properties + all associations
-  - **Software:** All properties + all associations
-- [ ] Markdown output is clean, hierarchical, and uses proper heading levels
-- [ ] Structure supports round-trip (could be re-imported — format consistent enough for future import parser)
-- [ ] For "Copy to Clipboard": success toast notification
-
-### Acceptance Criteria for Phase 6
-- Global Search returns results across all object types, grouped correctly
-- Search is fast (< 500ms for typical queries)
-- Keyboard navigation works in search results dropdown
-- Dashboard renders all sections with correct data
-- All numbers on Dashboard are clickable and navigate to correct filtered views
-- Suggested actions are generated correctly from data conditions
-- Recent activity shows the last 10 entries with correct details
-- Export button is present on all record pages and map views
-- Markdown export produces correct, clean output for every object type and map
-- Download and Copy to Clipboard both work
-- Bulk People export produces a zip file
+**Acceptance criteria:**
+- Core activity record page shows "Cleanup Transcript" as the heading with a "Core Activity" badge and optionally a "1.1.3" number prefix
+- Description field is visible and editable on the core activity record page
+- Association panel shows linked Processes and Workflows
 
 ---
 
-## MVP Phase 7: Settings, Polish & Launch Readiness
+#### 3.4.3 Three-Dot Menu — Add Custom Field Option
 
-### Goal
-Build settings pages, resolve edge cases, and ensure the app is production-ready.
+**Requirements:**
 
-### Strict Requirements
+- [ ] Add "Add Custom Field" as a menu item in the three-dot dropdown on all record pages (RecordView and DocumentView), above "Delete"
+- [ ] Clicking "Add Custom Field" navigates to `/settings/objects?type=core_activity` (or the relevant type) with the current object type pre-selected
+- [ ] On the object configuration page, if a `type` query parameter is present, auto-select that object type in the dropdown
 
-#### 7.1 Settings — Company Profile (`/settings/company`)
-- [ ] Form with all Company Profile fields:
-  - Company Name (text)
-  - Industry (select dropdown)
-  - Revenue (currency)
-  - Employee Count (auto-calculated, read-only)
-  - Location(s) (text)
-  - Key Objectives (markdown editor)
-  - Company Description (markdown editor)
-  - Biggest Pains (markdown editor)
-- [ ] Save button with success feedback
-- [ ] Data stored in `organizations` table
-
-#### 7.2 Settings — Object Configuration (`/settings/objects`)
-- [ ] **Custom Properties management:**
-  - Select object type from dropdown
-  - List existing custom properties for that type
-  - "Add Custom Property" button → form: property name, property type (text/number/date/select/multi-select/url/email/phone/currency/boolean), options (for select/multi-select)
-  - Edit existing custom properties (name, type, options)
-  - Delete custom property (with confirmation — warns that values will be lost)
-  - Drag to reorder custom properties
-- [ ] **Status/Lifecycle Customization:**
-  - Only available for non-operational objects: Person, Role, Software
-  - Show current status options
-  - Add, rename, remove, reorder status options
-  - Cannot customize operational objects (Function, Subfunction, Process, Core Activity) — shown as read-only with explanation
-- [ ] **Association Visibility:**
-  - Select object type
-  - List all possible association sections for that type
-  - Toggle each section on/off
-  - This controls what appears in the right column of Record View for that object type
-  - Applies to all records of that type (org-wide setting)
-
-#### 7.3 Settings — User Management (`/settings/users`)
-- [ ] List of users in the organization with: name, email, role (admin/member), status
-- [ ] Invite user: email input → sends invite email → user signs up and is linked to org
-- [ ] Change user role (admin can promote/demote)
-- [ ] Remove user from organization (with confirmation)
-- [ ] Only admins can access user management
-
-#### 7.4 Notifications
-- [ ] Basic notification system:
-  - Notification entries created for: status changes on records you own, comments on records you own, association changes on records you own
-  - Notification bell shows unread count badge
-  - Click bell → dropdown showing recent notifications
-  - Click notification → navigate to relevant record
-  - Mark as read (individually or "mark all read")
-- [ ] Stored in a `notifications` table with `user_id`, `record_id`, `record_type`, `message`, `read`, `created_at`
-
-#### 7.5 Polish & Edge Cases
-- [ ] All loading states show skeleton UI (not spinners)
-- [ ] All error states show user-friendly messages with retry option
-- [ ] All empty states show helpful messages and create actions
-- [ ] Confirmation dialogs for destructive actions (delete record, remove association)
-- [ ] Toast notifications for: save success, create success, delete success, error messages
-- [ ] Form validation with inline error messages on all create/edit forms
-- [ ] Core Activity title validation: must start with an action verb (validated on save with clear error message)
-- [ ] Core Activity status validation: cannot change to Active without a primary Subfunction (validated with clear message)
-- [ ] Responsive design: app usable (at minimum, not broken) on tablet-size screens
-- [ ] Keyboard accessibility: all interactive elements focusable, Enter/Space to activate
-- [ ] Consistent color palette for status indicators across all views
-- [ ] Favicon and page titles set correctly for all routes
-- [ ] 404 page with navigation back to Dashboard
-
-#### 7.6 Performance
-- [ ] List views with 100+ records load without jank
-- [ ] Function Chart with 10+ Functions and 50+ Subfunctions renders smoothly
-- [ ] Workflow Map with 5+ Phases and 20+ Processes renders smoothly
-- [ ] No unnecessary re-renders on data mutations (optimistic updates where appropriate)
-- [ ] Images (profile photos) lazy-loaded and properly sized
-
-### Acceptance Criteria for Phase 7
-- Company Profile saves and loads correctly
-- Custom properties can be created, edited, deleted for any object type
-- Custom properties appear on record views and are editable
-- Status customization works for non-operational objects and is blocked for operational ones
-- Association visibility settings apply correctly to Record Views
-- User management: invite, role change, and removal all work
-- Notifications are created for relevant events and display in the bell dropdown
-- No console errors in production build
-- All validation rules enforce correctly with clear user feedback
-- App is responsive and accessible
-- Performance targets met
+**Acceptance criteria:**
+- User is on a core activity record page, clicks the three-dot menu, sees "Add Custom Field" and "Delete"
+- Clicking "Add Custom Field" takes them to Settings > Object Configuration with "Core Activity" pre-selected
 
 ---
 
-## Post-MVP: Phase 2 — Content & Import
+#### 3.4.4 Custom Properties — Mixed Arrangement with Defaults
 
-### Goal
-Enable markdown import and introduce document management objects.
+**Requirements:**
 
-### Strict Requirements
+- [ ] Remove the separate "Custom Properties" section on record pages — custom properties must be intermixed with default properties in a single unified list
+- [ ] The display order of properties on record pages is determined by the order set in Object Configuration (see 3.3.3)
+- [ ] If no custom order has been saved, use the default order from `object-config.ts` with custom properties appended at the end
+- [ ] Only admins can drag-to-reorder properties in Object Configuration. The resulting order applies to ALL users in the organization for that object type.
 
-#### P2.1 Markdown Import
-- [ ] Import button on Function Chart and Workflow Map views
-- [ ] Upload file or paste markdown text
-- [ ] Parser interprets structure:
-  - Function Chart: H1 = Function, H2/bullet = Subfunction, indented bullet = Core Activity
-  - Workflow: H1 = Phase, H2/bullet = Process, indented bullet = Core Activity
-- [ ] Preview parsed structure before confirming import (tree view showing what will be created)
-- [ ] Scoped import: entire chart, single Function, single Subfunction, entire Workflow
-- [ ] All imported items created as Draft status
-- [ ] No associations included in import (roles, software, people added manually after)
-- [ ] Round-trip: previously exported markdown can be re-imported and produce the same structure
-
-#### P2.2 New Objects: SOP, Checklist, Template
-- [ ] Database tables with all properties per schema
-- [ ] Junction tables for all associations
-- [ ] CRUD operations via API
-- [ ] List Views, Record Views (or Document View for SOP/Checklist/Template)
-- [ ] Quick-Create Panels
-- [ ] Activity log integration
-
-#### P2.3 Document View
-- [x] New view type for SOP, Checklist, Template
-- [x] Notion-style layout: Title at top → collapsible properties → markdown editor (full width)
-- [x] Markdown editor with formatting toolbar, live preview
-- [x] Side panel mode: opens as 1/3 to 1/2 of screen when accessed from association links
-- [x] Expand to full screen option
-- [x] Collapse properties to maximize editor space
-- [x] Paste support: paste list with line breaks → auto-creates checklist items
-
-#### P2.4 Navigation Updates
-- [x] Add "Documents" nav group to left sidebar (SOPs, Checklists, Templates)
-- [x] Document objects appear in association columns across existing objects
-
-### Acceptance Criteria
-- Markdown import creates correct structures from properly formatted markdown files
-- Preview shows parsed structure accurately before import
-- SOP, Checklist, Template objects have full CRUD and views
-- Document View renders with markdown editor, collapsible properties, and side panel mode
-- New nav group appears and routes work
+**Acceptance criteria:**
+- A custom property "SLA Target" created for processes appears inline among default properties (e.g., between "Trigger" and "End State") based on the admin's configured order
+- There is no separate "Custom Properties" section header on record pages
 
 ---
 
-## Post-MVP: Phase 3 — AI Foundation
+#### 3.4.5 Core Activity ↔ Process Auto-Association
+
+**Requirements:**
+
+- [ ] In the workflow builder (`workflows/[id]/page.tsx`), when a new core activity is created within a process (via the add CA button in a process column), the code must automatically insert a row into `process_core_activities` linking the new CA to that process — in addition to creating the CA record itself
+- [ ] The auto-association should set the correct `position` (append to end of the process's CA list)
+- [ ] This auto-association must be reflected immediately in both:
+  - The core activity's record page (in the Processes association panel)
+  - The process's record page (in the Core Activities association panel and the process visual)
+
+**Acceptance criteria:**
+- User creates a core activity inside Process 1.1 in the workflow builder → navigates to that CA's record page → sees "Process 1.1" listed under associated Processes without any manual association step
+
+---
+
+### Phase 3.5: Workflow & Function Chart Improvements
+
+**Goal:** Add workflow status, enable cross-process drag, improve function chart UX.
+
+#### 3.5.1 Workflow Status
+
+**Requirements:**
+
+- [ ] Database migration: Add `status` column to `workflows` table — type `TEXT NOT NULL DEFAULT 'Draft'`, with CHECK constraint for values: `'Draft'`, `'Active'`, `'Archived'`
+- [ ] Update the workflow list page (`workflows/page.tsx`):
+  - Add a "Status" column to the table showing a colored badge (Draft = gray, Active = green, Archived = yellow/muted)
+  - Also show the status badge next to the workflow title in the same row for quick scanning
+  - Add status as a filterable column (filter dropdown in the table header)
+  - Add status as a sortable column
+- [ ] In the workflow builder view (`workflows/[id]/page.tsx`):
+  - Show the current status as a badge in the page header
+  - Allow changing status via a dropdown (same pattern as record page status fields)
+  - Persist status change via server action (update the `workflows` row)
+- [ ] Update search to include workflow status in results
+
+**Acceptance criteria:**
+- Workflow list shows a status column with colored badges; user can filter by Draft/Active/Archived
+- User can change a workflow's status from the builder page header
+- New workflows default to "Draft"
+
+---
+
+#### 3.5.2 Cross-Process Core Activity Drag-and-Drop
+
+**Root cause:** Each process in the workflow builder has its own isolated `DndContext` (workflow `[id]/page.tsx` line 950), so core activities can only be reordered within a single process. The function chart drill-down (`function-chart/[id]/page.tsx`) already implements cross-column drag with a shared top-level `DndContext` + `onDragOver` — use as reference.
+
+**Requirements:**
+
+- [ ] Replace the per-process `DndContext` in the workflow builder with a single shared `DndContext` wrapping ALL processes within a phase (or all processes in the entire workflow)
+- [ ] Implement `onDragOver` handler: when a core activity is dragged over a different process container, visually move it to that container (optimistic local state update)
+- [ ] Implement `onDragEnd` handler to persist the cross-process move:
+  - Delete the row from `process_core_activities` for the source process
+  - Insert a new row in `process_core_activities` for the target process with the correct position
+  - Update positions of remaining CAs in the source process (close the gap)
+  - Update positions of CAs in the target process (make room at the drop position)
+- [ ] Show visual feedback during drag: highlight valid drop zones (other process containers), show an insertion line at the drop position
+- [ ] Handle edge case: if a CA is the only item in a process, the source process should show an empty state after the move
+
+**Acceptance criteria:**
+- User drags a core activity from Process 1.1 and drops it into Process 1.2 — the CA moves and the change persists after refresh
+- Reordering within a single process still works as before
+- Numbers update automatically after a cross-process move
+
+---
+
+#### 3.5.3 Function Chart — Cleaner Add Subfunction UI
+
+**Requirements:**
+
+- [ ] Remove the two "Add Subfunction" ghost buttons that currently appear above and below each subfunction card in every function column (function-chart/page.tsx lines 289-305 and 339-355)
+- [ ] Add a single `+` button at the bottom of each function column, below the last subfunction card — clicking it creates a new subfunction at the bottom of that function's list
+- [ ] Add a small `+` icon in the function column header area (bottom-right corner of the header) — clicking it creates a new subfunction at the top of that function's list
+- [ ] Both buttons open the same `QuickCreatePanel` for subfunctions with `function_id` pre-set
+
+**Acceptance criteria:**
+- No "Add Subfunction" buttons floating between subfunction cards
+- One `+` at the bottom of each column, one small `+` in the column header
+- Function chart looks cleaner with less visual clutter
+
+---
+
+#### 3.5.4 Function Click — Chart Drill-Down Verification
+
+**Requirements:**
+
+- [ ] Verify that clicking a function title in the function chart column header navigates to `/function-chart/[id]` (the drill-down chart view showing subfunctions as columns and core activities as cards) — this is already implemented, just confirm it works
+- [ ] Make the "View record" link in the function column header less prominent (smaller text, muted color) or rename it to "Edit properties" to clarify that it goes to the generic record page, not the chart
+- [ ] Add a breadcrumb at the top of the function chart drill-down page: "Function Chart > [Function Name]" with "Function Chart" linking back to `/function-chart`
+
+**Acceptance criteria:**
+- Primary click on function name goes to the chart drill-down
+- User can easily navigate back to the full function chart from the drill-down
+
+---
+
+### Phase 3.6: Document View Improvements (SOP, Checklist, Template)
+
+**Goal:** Refine document-type record pages for better field sizing, usability, and appropriate editing experiences.
+
+#### 3.6.1 SOP Page Improvements
+
+**Root cause:** `trigger`, `end_state`, and `description` all render as full TipTap rich text editors. The status badge is display-only with no click handler.
+
+**Requirements:**
+
+- [ ] Modify `DocumentView` to support per-field rendering overrides based on the object type:
+  - For SOPs: render `trigger` and `end_state` as small plain text inputs (single line) instead of TipTap editors — remove them from the `CONTENT_FIELDS` array for SOP context
+  - For SOPs: render `description` as a small textarea (2-3 rows, plain text or very basic formatting) instead of a full TipTap editor
+  - For SOPs: keep `content` as the large TipTap rich editor — this is the main SOP body
+- [ ] Field display order on SOP page: Description (small) → Trigger (single line) → End State (single line) → Content (large editor)
+- [ ] Database migration: Add `video_url` TEXT column to the `sops` table
+- [ ] Add `video_url` to the SOP object config
+- [ ] Render the video URL field as a text input where the user pastes a URL (YouTube, Google Drive, or Loom)
+- [ ] Below the URL input, embed the video natively using an iframe:
+  - YouTube: convert `youtube.com/watch?v=ID` or `youtu.be/ID` to `youtube.com/embed/ID`
+  - Loom: convert `loom.com/share/ID` to `loom.com/embed/ID`
+  - Google Drive: convert `drive.google.com/file/d/ID/view` to `drive.google.com/file/d/ID/preview`
+  - If the URL doesn't match any known pattern, show the raw link
+  - Reuse/extend the existing `VideoEmbed` component from the core activity record page
+- [ ] Make the `StatusBadge` in `DocumentMetaRow` interactive for ALL document types (SOP, Checklist, Template):
+  - Clicking the status badge opens a dropdown with available status options (Draft, Published, Archived)
+  - Selecting a new status immediately persists it via the `updateRecord` server action
+  - Badge color updates to reflect the new status
+
+**Acceptance criteria:**
+- SOP page shows small fields for trigger/end state/description, a large editor for content, and a video embed section
+- Pasting a YouTube/Loom/Google Drive URL shows an embedded playable video
+- Clicking the "Published" badge opens a dropdown to change status
+
+---
+
+#### 3.6.2 Checklist Page Improvements
+
+**Requirements:**
+
+- [ ] Make the status badge clickable/toggleable (same as SOP — reuse the interactive StatusBadge from 3.6.1)
+- [ ] Render `description` as a small textarea (2-3 rows, plain text) instead of a full TipTap editor
+- [ ] Database migration: Add `trigger` TEXT and `end_state` TEXT columns to the `checklists` table
+- [ ] Add `trigger` and `end_state` to the checklist object config — render as small plain text inputs on the checklist page
+- [ ] Database migration: Add `items` JSONB column to the `checklists` table for structured checklist items (array of `{ text: string, position: number }`)
+- [ ] Redesign the `content` section as a **checklist items editor** (new component: `ChecklistItemsEditor`):
+  - Each item is a single-line plain text input (no rich formatting)
+  - Items are displayed as a numbered vertical list
+  - Each item row has: a drag handle (left), the item number, the text input (fills remaining width), and a delete (X) button (right)
+  - "Add item" button below the last item — clicking it adds a new empty item and focuses it
+  - Drag-to-reorder items using dnd-kit (similar pattern to existing drag-reorder in the app)
+  - **Soft limit of 10 items:** When items exceed 10, show a warning message below the list: "Checklists are recommended to be no longer than 10 items." The warning is informational — users CAN add more items.
+  - **Smart paste:** When pasting multi-line text into any item input, detect line breaks and automatically split the pasted text into multiple separate items (one per line). If the resulting total exceeds 10, show the soft warning. All pasted items are added regardless of count.
+  - Items are plain text only — no markdown, no bold, no links
+  - Auto-save: items persist to the database (the `items` JSONB column) on blur or after reorder, debounced
+- [ ] Field display order on checklist page: Description (small) → Trigger (single line) → End State (single line) → Checklist Items (editor)
+- [ ] Migrate existing `content` data: if any checklists have freeform content, attempt to parse it into line-separated items during migration or show a one-time migration prompt
+
+**Acceptance criteria:**
+- Checklist page shows a clean, numbered list of items with add/delete/reorder
+- Pasting 5 lines of text into one item creates 5 separate items
+- Adding an 11th item shows the soft warning but is allowed
+- Pasting 15 lines creates 15 items with the soft warning shown
+- Items are strictly plain text
+
+---
+
+#### 3.6.3 Template Page Improvements
+
+**Requirements:**
+
+- [ ] Reorder fields on the template page: `description` appears above `content`
+- [ ] Render `description` as a small plain textarea (2-3 rows) instead of a full TipTap editor
+- [ ] Label the main content section with a visible heading: "Template Content"
+- [ ] Keep the `content` field as a full TipTap rich editor
+
+**Acceptance criteria:**
+- Template page shows: Description (small) → "Template Content" heading → large TipTap editor
+- Description is a simple text field, not a rich editor
+
+---
+
+### Phase 3.7: Object Schema Additions
+
+**Goal:** Add missing fields to Role and Person objects identified during product review.
+
+#### 3.7.1 Role — Additional Fields
+
+**Requirements:**
+
+- [ ] Database migration: Add `salary_range_min` INTEGER and `salary_range_max` INTEGER columns to the `roles` table
+- [ ] Database migration: Add `other_function_ids` JSONB column to the `roles` table (array of UUID strings referencing functions)
+- [ ] Update role object config in `object-config.ts`:
+  - Add `salary_range_min` and `salary_range_max` as number fields, editable, visible on record page. Render as two side-by-side inputs with labels "Min" and "Max" and a `$` prefix on each
+  - Add `other_functions` as a new field type: multi-select reference to functions. Render as a list of selected functions with an "Add" button that opens a `ReferenceCombobox` to search and select additional functions. Each selected function shows with an X to remove.
+  - Ensure `brief_description` has `visible: true` (or remove `visible: false`) so it shows on the record page and in the DataTable
+- [ ] The multi-select reference field type (`other_functions`) should be a reusable pattern — it will likely be needed for other objects in future phases
+
+**Acceptance criteria:**
+- Role record page shows: Primary Function (single select), Other Functions (multi-select showing tags for each selected function), Brief Description (editable text), Salary Range (two number inputs showing $min – $max)
+- Admin can add/remove functions from the "Other Functions" list
+- Brief description is visible in both the list view and the record view
+
+---
+
+#### 3.7.2 Person — Additional Fields
+
+**Requirements:**
+
+- [ ] Database migration: Create a `benefit_options` table (id, organization_id, label, created_by, created_at) to store the organization's available benefit tags
+- [ ] Database migration: Create a `person_benefits` junction table (person_id, benefit_option_id, created_by, created_at) linking people to their selected benefits
+- [ ] Update person object config:
+  - Add "Benefits" as an association-style field on the person record page
+  - Render as a list of tags (pills/badges) showing each selected benefit
+  - "Add" button opens a combobox showing existing benefit options for the organization, with a "Create new" option to define a new benefit tag on the fly
+  - Tags can be removed with an X button
+- [ ] Seed some default benefit options for new organizations: "Health Insurance", "Dental", "Vision", "401(k)", "PTO", "Remote Work Stipend" — these are suggestions that can be deleted or renamed
+- [ ] The benefit tags system should be per-organization (each workspace manages its own benefit options)
+
+**Acceptance criteria:**
+- Person record page shows a "Benefits" section with tags like "Health Insurance", "Dental", "401(k)"
+- Admin can add new benefit options (e.g., "Gym Membership") and they become available for all people in the organization
+- Multiple people can share the same benefit tags
+
+---
+
+### Phase 3.8: Tools Page Redesign
+
+**Goal:** Make the Tools page scalable for multiple tools with proper navigation.
+
+#### 3.8.1 Tools Index Page
+
+**Requirements:**
+
+- [ ] Redesign `/tools` as an index/grid page showing one card per tool
+- [ ] Each tool card shows: icon (e.g., Terminal icon), tool name, brief 1-sentence description, and a link/button to view details
+- [ ] Currently there is only one tool (Ops Import Skill) — the card layout should accommodate 2-4 cards per row
+- [ ] Clicking a card navigates to `/tools/[slug]` (e.g., `/tools/ops-import-skill`)
+
+**Acceptance criteria:**
+- `/tools` shows a grid of tool cards (currently just one card for Ops Import Skill)
+- The page looks intentional, not empty — if only one card, it's left-aligned in the grid, not stretched full width
+
+---
+
+#### 3.8.2 Tool Detail Pages with Breadcrumb
+
+**Requirements:**
+
+- [ ] Create `/tools/ops-import-skill/page.tsx` and move all current Ops Import Skill content from `/tools/page.tsx` into it
+- [ ] Add breadcrumb navigation at the top of the detail page: "Tools > Ops Import Skill" — "Tools" links back to `/tools`
+- [ ] Keep all existing detail content (description, what it does, installation steps, individual file downloads)
+- [ ] The route structure `/tools/[slug]` should be flexible for adding more tools later
+
+**Acceptance criteria:**
+- Navigating to `/tools` shows the card grid
+- Clicking the Ops Import Skill card goes to `/tools/ops-import-skill`
+- Breadcrumb at top allows navigating back to the tools index
+
+---
+
+### Phase 3 — Implementation Order
+
+Recommended execution order based on dependencies and impact:
+
+| Priority | Phase | Description | Effort |
+|----------|-------|-------------|--------|
+| 1 | 3.1.1 | Text field editing config fix | XS |
+| 2 | 3.1.2 | Association creation fix | S |
+| 3 | 3.1.3 | Quick-create button visibility | XS |
+| 4 | 3.1.4 | Preview panel reference resolution | S |
+| 5 | 3.1.5 | DataTable title column fix | XS |
+| 6 | 3.2.1 | Header right-alignment | XS |
+| 7 | 3.5.1 | Workflow status (migration + UI) | S |
+| 8 | 3.4.2 | Core activity heading, description, associations | S |
+| 9 | 3.4.1 | Process record page layout + process visual + numbering | L |
+| 10 | 3.6.1 | SOP page improvements (field sizes + video embed + status toggle) | M |
+| 11 | 3.6.2 | Checklist page improvements (items editor + smart paste) | L |
+| 12 | 3.6.3 | Template page improvements | XS |
+| 13 | 3.5.3 | Function chart cleaner add-subfunction UI | S |
+| 14 | 3.5.4 | Function chart drill-down verification + breadcrumb | XS |
+| 15 | 3.4.5 | Core activity ↔ process auto-association | S |
+| 16 | 3.5.2 | Cross-process drag-and-drop | L |
+| 17 | 3.3.1 | Revenue input fix | XS |
+| 18 | 3.3.2 | Remove user button clarity | XS |
+| 19 | 3.3.3 | Object configuration — show all properties | L |
+| 20 | 3.4.3 | Three-dot menu custom field option | XS |
+| 21 | 3.4.4 | Custom properties mixed arrangement | M |
+| 22 | 3.7.1 | Role additional fields (other functions, salary range) | M |
+| 23 | 3.7.2 | Person benefits tags | M |
+| 24 | 3.8 | Tools page redesign | S |
+| 25 | 3.2.2 | Personal settings (profile + security pages) | M |
+| 26 | 3.2.3 | Workspace switching | XL |
+
+*Effort key: XS = < 1 hour, S = 1-3 hours, M = 3-8 hours, L = 1-2 days, XL = 3-5 days*
+
+---
+
+### Phase 3 — Database Migrations Required
+
+1. `add_workflow_status` — Add `status TEXT NOT NULL DEFAULT 'Draft'` + CHECK constraint to `workflows` table
+2. `add_checklist_trigger_endstate` — Add `trigger TEXT`, `end_state TEXT` to `checklists` table
+3. `add_checklist_items` — Add `items JSONB` to `checklists` table (array of `{text, position}`)
+4. `add_sop_video_url` — Add `video_url TEXT` to `sops` table
+5. `add_role_fields` — Add `salary_range_min INTEGER`, `salary_range_max INTEGER`, `other_function_ids JSONB` to `roles` table
+6. `add_benefit_options` — Create `benefit_options` table (id, organization_id, label, created_by, created_at) + `person_benefits` junction table
+7. `add_user_profiles` — Create `profiles` table or extend auth metadata for display_name, timezone, location, avatar_url (if not using Supabase Auth metadata)
+8. `add_property_order` — Add storage for per-org property display order (could be a `property_orders` table or a JSONB column on the `organizations` table)
+
+**No migration needed for:**
+- Core activity `description` — column already exists in DB (`core_activities.description TEXT`), just needs to be added to the object config
+- Core activity ↔ Process association — junction table `process_core_activities` already exists, just needs reverse association defined in core_activity config
+
+### Phase 3 — Config-Only Changes (No Migration)
+
+These items only require changes to `src/lib/object-config.ts`:
+1. Add `editable: true` to trigger, end_state, estimated_duration on process columns
+2. Add `editable: true` to trigger, end_state, video_url on core_activity columns
+3. Add `description` column entry to core_activity config
+4. Add reverse `process` association to core_activity config (using existing `process_core_activities` junction table)
+5. Change `brief_description` to `visible: true` on role config
+
+---
+
+## Post-MVP: Phase 4 — AI Foundation
 
 ### Goal
 Introduce the Ops Coach and AI-assisted content creation.
 
 ### Strict Requirements
 
-#### P3.1 Ops Coach — Basic
+#### P4.1 Ops Coach — Basic
 - [ ] Slide-out panel from right side (icon in top bar activates)
 - [ ] Chat interface: text input + message history
 - [ ] Voice input via speech-to-text (OpenAI Whisper API or equivalent)
@@ -772,13 +569,13 @@ Introduce the Ops Coach and AI-assisted content creation.
   - Suggest description, trigger, end state for Core Activities
   - Answer questions using company profile and system data
 
-#### P3.2 AI Content Labeling
+#### P4.2 AI Content Labeling
 - [ ] All AI-generated content visually labeled with AI badge/icon
 - [ ] Label persists until human reviews and confirms (explicit "Approve" action)
 - [ ] Approval removes AI label
 - [ ] AI-generated vs. human-created distinction tracked in database
 
-#### P3.3 Voice Input
+#### P4.3 Voice Input
 - [ ] Microphone icon on all markdown fields
 - [ ] Record → speech-to-text → AI cleanup pass → user reviews
 - [ ] Available in Ops Coach panel
@@ -791,20 +588,20 @@ Introduce the Ops Coach and AI-assisted content creation.
 
 ---
 
-## Post-MVP: Phase 4 — Org & Metrics
+## Post-MVP: Phase 5 — Org & Metrics
 
 ### Strict Requirements
 - [ ] Team object with full CRUD, views, and associations
 - [ ] KPI object (reference records only — define what to measure)
 - [ ] Feature object with parent Software relationship
 - [ ] Org Chart map view with Singular/Comprehensive/People toggles
-- [ ] Phase 4b: KPI actual value tracking, trend charts, Scorecards view
+- [ ] Phase 5b: KPI actual value tracking, trend charts, Scorecards view
 - [ ] Dashboard enhancements: People Spend, enhanced Software Spend
 - [ ] Navigation updates: Team under People, KPIs nav group, Features under Resources, Org Chart under People
 
 ---
 
-## Post-MVP: Phase 5 — External & Equipment
+## Post-MVP: Phase 6 — External & Equipment
 
 ### Strict Requirements
 - [ ] Vendor object with full CRUD, views, and associations
@@ -815,7 +612,7 @@ Introduce the Ops Coach and AI-assisted content creation.
 
 ---
 
-## Post-MVP: Phase 6 — Advanced AI
+## Post-MVP: Phase 7 — Advanced AI
 
 ### Strict Requirements
 - [ ] AI-Powered Onboarding Wizard (multi-step guided setup, auto-populates draft data)
@@ -829,7 +626,7 @@ Introduce the Ops Coach and AI-assisted content creation.
 
 ---
 
-## Post-MVP: Phase 7 — Agent Platform
+## Post-MVP: Phase 8 — Agent Platform
 
 ### Strict Requirements
 - [ ] Public Agent API (REST, JSON with markdown content fields)
