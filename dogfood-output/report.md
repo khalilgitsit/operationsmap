@@ -1,95 +1,77 @@
-# Dogfood Report: Ops Map
+# Dogfood Report: Ops Map — Document View (Phase 2.3)
 
 | Field | Value |
 |-------|-------|
-| **Date** | 2026-02-26 |
-| **App URL** | https://operationsmap.vercel.app |
-| **Session** | operationsmap |
-| **Scope** | Full app — Phase 7 features + all existing features |
+| **Date** | 2026-02-25 |
+| **App URL** | http://localhost:3000 |
+| **Session** | docview-dogfood |
+| **Scope** | New Document View features: TipTap editor, collapsible properties, fullscreen, sidebar toggle, side panel mode, paste-to-tasklist for SOP/Checklist/Template objects |
 
 ## Summary
 
 | Severity | Count |
 |----------|-------|
-| Critical | 0 |
-| High | 0 |
+| Critical | 1 |
+| High | 1 |
 | Medium | 1 |
-| Low | 2 |
+| Low | 0 |
 | **Total** | **3** |
 
 ## Issues
 
-### ISSUE-001 — Dashboard and search pages have double padding
+### ISSUE-001: TipTap editor crashes with SSR hydration error on Document View
 
 | Field | Value |
 |-------|-------|
-| **Severity** | Medium |
-| **Page** | Dashboard (`/`), Search (`/search`) |
-| **Type** | Layout / Visual |
+| **Severity** | critical |
+| **Category** | functional |
+| **URL** | http://localhost:3000/sops/{id} |
 | **Repro Video** | N/A |
 
-**Description:** The app layout (`layout.tsx`) applies `p-6` (24px padding) on the `<main>` element. The dashboard and search pages also add their own `p-6` on their root `<div>`, resulting in 48px total padding — double the padding compared to all other pages (list views, record views, settings, etc.) which only use the layout's 24px.
+**Description**
 
-**Screenshot:** [dashboard-final.png](screenshots/dashboard-final.png)
+Opening any document record (SOP, Checklist, Template) crashes with a runtime error: "Tiptap Error: SSR has been detected, please set `immediatelyRender` explicitly to `false` to avoid hydration mismatches." The TipTap `useEditor` hook needs the `immediatelyRender: false` option in Next.js SSR environments.
 
-**Fix:** Removed the duplicate `p-6` from the dashboard page (`src/app/(app)/page.tsx`) and search page (`src/app/(app)/search/page.tsx`).
+**Repro Steps**
+
+1. Navigate to SOPs list, click on "New Employee Onboarding Procedure"
+   ![Result](screenshots/dv-sop-document-view.png)
+
+2. **Observe:** Runtime error overlay appears, page is blank/broken
 
 ---
 
-### ISSUE-002 — Missing favicon.ico causes 404 on every page load
+### ISSUE-002: Content area not scrollable — Trigger, End State, Description sections unreachable
 
 | Field | Value |
 |-------|-------|
-| **Severity** | Low |
-| **Page** | All pages |
-| **Type** | Console error |
+| **Severity** | high |
+| **Category** | functional |
+| **URL** | http://localhost:3000/sops/{id} |
 | **Repro Video** | N/A |
 
-**Description:** The app serves `favicon.svg` via metadata but no `favicon.ico` exists in the `public/` directory. Most browsers still request `/favicon.ico` regardless of the `<link rel="icon">` tag, producing a 404 error in the browser console on every page load.
+**Description**
 
-**Console output:**
-```
-Failed to load resource: the server responded with a status of 404 ()
-```
+The document view's ScrollArea was not constraining its height, causing the Trigger, End State, and Description editor sections to be rendered below the fold but unreachable by scrolling. The Radix ScrollArea viewport auto-expanded to fit content instead of showing a scrollbar. Root cause: `flex-1` on the ScrollArea needed `min-h-0` to allow the flex item to shrink below content height.
 
-**Fix:** Added a permanent redirect from `/favicon.ico` to `/favicon.svg` in `next.config.ts`.
+**Fix Applied:** Added `min-h-0` class to ScrollArea in document-view.tsx.
 
 ---
 
-### ISSUE-003 — Persistent 400 console error on page loads
+### ISSUE-003: Duplicate TipTap extension warnings for Link and Underline
 
 | Field | Value |
 |-------|-------|
-| **Severity** | Low |
-| **Page** | Most pages |
-| **Type** | Console error |
+| **Severity** | medium |
+| **Category** | console-error |
+| **URL** | http://localhost:3000/sops/{id} |
 | **Repro Video** | N/A |
 
-**Description:** A 400 (Bad Request) error appears in the browser console on most page loads. The error does not affect functionality — all data loads correctly, auth works, and all CRUD operations succeed. The likely source is the Supabase auth token refresh mechanism: when the middleware and server actions both call `supabase.auth.getUser()`, the access token refresh can produce a transient 400 for the expiring token. This is handled gracefully by the Supabase client.
+**Description**
 
-**Console output:**
-```
-Failed to load resource: the server responded with a status of 400 ()
-```
+Browser console shows warnings: "Duplicate extension names found: ['link', 'underline']". The TipTap StarterKit (v2.x) now bundles both the Link and Underline extensions. The editor was also importing them separately, causing each to be registered twice. While not a crash, this can cause unpredictable behavior when extensions conflict.
 
-**Status:** Not fixed — benign auth token refresh artifact. Would require deeper Supabase session management changes to suppress.
+**Fix Applied:** Removed separate `Underline` and `Link` extension imports. Configured link options through `StarterKit.configure({ link: { ... } })` instead.
 
 ---
 
-## Areas Tested
-
-| Area | Status | Notes |
-|------|--------|-------|
-| Dashboard | Pass | Metrics, activity feed, suggestions all render correctly |
-| Function Chart | Pass | Drag-and-drop, add function/subfunction, export, detail drill-down |
-| Workflow Map | Pass | Create workflow, add phases, builder UI |
-| All 7 List Views | Pass | Functions, Subfunctions, Processes, Core Activities, People, Roles, Software |
-| Record Views | Pass | Three-column layout, associations, comments, export |
-| Global Search | Pass | Searches across all object types, keyboard navigation |
-| Create New (Quick Create) | Pass | Tested via header dropdown and list page buttons |
-| Settings — Company Profile | Pass | Form fields render correctly |
-| Settings — Object Configuration | Pass | Custom Properties, Status Options (with drag-to-reorder), Association Visibility |
-| Settings — User Management | Pass | User list, invite button, role filter |
-| Notifications (Bell) | Pass | Dropdown, empty state, polling |
-| Export | Pass | Download as .md and Copy to Clipboard options |
-| Navigation | Pass | Sidebar, breadcrumbs, collapsible sections |

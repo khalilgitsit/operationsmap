@@ -365,7 +365,7 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
           </div>
 
           {/* Scrollable document body */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div className={cn('pr-4 pb-8', sidePanel ? 'max-w-full' : 'max-w-4xl')}>
               {/* Collapsible Properties */}
               <div className="mb-4">
