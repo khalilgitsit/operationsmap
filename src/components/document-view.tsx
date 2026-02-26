@@ -35,6 +35,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -47,6 +48,7 @@ import {
   PanelRightOpen,
   Plus,
   Send,
+  Settings,
   Trash2,
   X,
 } from 'lucide-react';
@@ -69,6 +71,7 @@ import {
 } from '@/server/actions/generic';
 import { addAssociation, removeAssociation } from '@/server/actions/associations';
 import { getOrgSetting } from '@/server/actions/settings';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 interface DocumentViewProps {
@@ -325,6 +328,14 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {/* 3.4.3: Add Custom Field option */}
+                    <DropdownMenuItem
+                      onSelect={() => router.push(`/settings/objects?type=${config.type}`)}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      Add Custom Field
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
                       onSelect={() => setDeleteDialogOpen(true)}
@@ -351,12 +362,18 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
                   }}
                 />
               ) : (
-                <h1
-                  className="text-2xl font-bold cursor-pointer hover:text-primary/80 transition-colors"
-                  onClick={() => setEditingField(config.titleField)}
-                >
-                  {title || 'Untitled'}
-                </h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1
+                    className="text-2xl font-bold cursor-pointer hover:text-primary/80 transition-colors"
+                    onClick={() => setEditingField(config.titleField)}
+                  >
+                    {title || 'Untitled'}
+                  </h1>
+                  {/* 3.4.2: Object type badge */}
+                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                    {config.label}
+                  </Badge>
+                </div>
               )}
             </div>
 

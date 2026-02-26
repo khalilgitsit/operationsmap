@@ -344,7 +344,17 @@ function SortableStatusItem({
 // --- Main Page ---
 export default function ObjectConfigPage() {
   const [isPending, startTransition] = useTransition();
-  const [selectedType, setSelectedType] = useState('function');
+  // 3.4.3: Auto-select object type from URL query parameter
+  const [selectedType, setSelectedType] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const typeParam = params.get('type');
+      if (typeParam && OBJECT_TYPES.some((t) => t.value === typeParam)) {
+        return typeParam;
+      }
+    }
+    return 'function';
+  });
   const [customProperties, setCustomProperties] = useState<CustomPropertyDef[]>([]);
   const [loading, setLoading] = useState(false);
 
