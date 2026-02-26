@@ -5,8 +5,6 @@ import StarterKit from '@tiptap/starter-kit';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Placeholder from '@tiptap/extension-placeholder';
-import Underline from '@tiptap/extension-underline';
-import Link from '@tiptap/extension-link';
 import Highlight from '@tiptap/extension-highlight';
 import { useCallback, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -54,20 +52,20 @@ export function TiptapEditor({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         bulletList: { keepMarks: true },
         orderedList: { keepMarks: true },
+        link: {
+          openOnClick: !editable,
+          HTMLAttributes: { class: 'text-primary underline cursor-pointer' },
+        },
       }),
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
-      Underline,
-      Link.configure({
-        openOnClick: !editable,
-        HTMLAttributes: { class: 'text-primary underline cursor-pointer' },
-      }),
       Highlight.configure({ multicolor: false }),
     ],
     content: content || '',
