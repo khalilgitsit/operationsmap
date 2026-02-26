@@ -44,6 +44,7 @@ import { ExportButton } from '@/components/export-button';
 import {
   type ObjectConfig,
   type AssociationConfig,
+  type ColumnConfig,
   getRecordTitle,
   getObjectConfig,
   OBJECT_CONFIGS,
@@ -82,6 +83,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
   const [createState, setCreateState] = useState<{ config: ObjectConfig; defaults?: Record<string, unknown>; assoc?: AssociationConfig } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [assocVisibility, setAssocVisibility] = useState<Record<string, Record<string, boolean>> | null>(null);
+  const [referenceLabels, setReferenceLabels] = useState<Record<string, { label: string; href: string }>>({});
 
   const fetchAssocVisibility = useCallback(async () => {
     const result = await getOrgSetting('association_visibility');
@@ -97,9 +99,28 @@ export function RecordView({ config, recordId }: RecordViewProps) {
     const result = await getRecord(config.type, recordId);
     if (result.success) {
       setRecord(result.data);
+      // Resolve reference field UUIDs to human-readable labels
+      const refCols = config.columns.filter(
+        (col: ColumnConfig) => col.type === 'reference' && col.referenceType && result.data[col.key]
+      );
+      const newLabels: Record<string, { label: string; href: string }> = {};
+      for (const col of refCols) {
+        const refId = result.data[col.key] as string;
+        if (!refId) continue;
+        const refConfig = OBJECT_CONFIGS[col.referenceType!];
+        if (!refConfig) continue;
+        const refResult = await getRecord(col.referenceType!, refId);
+        if (refResult.success && refResult.data) {
+          newLabels[col.key] = {
+            label: getRecordTitle(refResult.data, refConfig),
+            href: refConfig.recordHref(refId),
+          };
+        }
+      }
+      setReferenceLabels(newLabels);
     }
     setLoading(false);
-  }, [config.type, recordId]);
+  }, [config.type, config.columns, recordId]);
 
   const fetchActivities = useCallback(async (cursor?: string) => {
     setLoadingActivities(true);
@@ -310,7 +331,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                           )}
                           onClick={() => col.editable && setEditingField(col.key)}
                         >
-                          {renderFieldValue(col, value, config)}
+                          {renderFieldValue(col, value, config, referenceLabels)}
                         </div>
                       )}
                     </div>
@@ -544,7 +565,12 @@ function EditableField({
   }
 }
 
-function renderFieldValue(col: { key: string; type: string }, value: unknown, config: ObjectConfig): React.ReactNode {
+function renderFieldValue(
+  col: { key: string; type: string },
+  value: unknown,
+  config: ObjectConfig,
+  referenceLabels?: Record<string, { label: string; href: string }>
+): React.ReactNode {
   if (col.type === 'select' && col.key === config.statusField) {
     return <StatusBadge status={(value as string) || ''} />;
   }
@@ -559,6 +585,17 @@ function renderFieldValue(col: { key: string; type: string }, value: unknown, co
   }
   if (col.type === 'url' && value) {
     return <a href={value as string} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">{value as string}</a>;
+  }
+  if (col.type === 'reference' && value) {
+    const ref = referenceLabels?.[col.key];
+    if (ref) {
+      return (
+        <Link href={ref.href} className="text-primary hover:underline">
+          {ref.label}
+        </Link>
+      );
+    }
+    return <span className="text-muted-foreground italic">Loading…</span>;
   }
   if (col.type === 'multi_select' && Array.isArray(value)) {
     return value.length > 0 ? (
