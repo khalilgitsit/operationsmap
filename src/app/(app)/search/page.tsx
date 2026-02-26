@@ -68,7 +68,7 @@ export default function SearchPage() {
   const totalResults = groups.reduce((sum, g) => sum + g.totalCount, 0);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <PageHeader
         title={query ? `Search results for "${query}"` : 'Search'}
         backHref="/"
