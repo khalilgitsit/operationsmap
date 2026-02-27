@@ -487,7 +487,12 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                   return (
                     <div key={col.key} className="flex items-start gap-4 py-2">
                       <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{col.label}</span>
-                      <div className="flex-1 min-w-0">
+                      <div
+                        className="flex-1 min-w-0"
+                        onClick={() => {
+                          if (col.editable && !isEditing) setEditingField(col.key);
+                        }}
+                      >
                         <SalaryRangeField
                           min={record.salary_range_min as number | null}
                           max={record.salary_range_max as number | null}
@@ -916,7 +921,8 @@ function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
   } else if (fieldName === '_deleted') {
     description = 'Deleted this record';
   } else {
-    description = `Updated ${fieldName}: "${formatVal(activity.old_value)}" → "${formatVal(activity.new_value)}"`;
+    const displayName = fieldName ? humanizeFieldName(fieldName) : 'field';
+    description = `Updated ${displayName}: "${formatVal(activity.old_value)}" → "${formatVal(activity.new_value)}"`;
   }
 
   return (
@@ -935,7 +941,21 @@ function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
 
 function formatVal(v: unknown): string {
   if (v === null || v === undefined) return '(empty)';
+  if (Array.isArray(v)) {
+    if (v.length === 0) return '(empty)';
+    return v.join(', ');
+  }
+  if (typeof v === 'object') {
+    return JSON.stringify(v);
+  }
   return String(v);
+}
+
+function humanizeFieldName(fieldName: string): string {
+  return fieldName
+    .replace(/_ids?$/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatRelativeTime(dateStr: string): string {

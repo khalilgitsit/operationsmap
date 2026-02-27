@@ -71,6 +71,7 @@ export function MultiReferenceField({
                 value={null}
                 onChange={(id) => handleAdd(id)}
                 placeholder={`Add ${refConfig.label.toLowerCase()}...`}
+                excludeIds={value}
               />
             </div>
             <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>
@@ -127,6 +128,7 @@ export function MultiReferenceField({
                 value={null}
                 onChange={(id) => handleAdd(id)}
                 placeholder={`Add ${refConfig.label.toLowerCase()}...`}
+                excludeIds={value}
               />
             </div>
             <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>

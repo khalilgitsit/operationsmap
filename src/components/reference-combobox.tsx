@@ -15,6 +15,7 @@ interface ReferenceComboboxProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  excludeIds?: string[];
 }
 
 export function ReferenceCombobox({
@@ -24,6 +25,7 @@ export function ReferenceCombobox({
   placeholder = 'Select...',
   disabled,
   className,
+  excludeIds,
 }: ReferenceComboboxProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -89,7 +91,7 @@ export function ReferenceCombobox({
                   <span className="text-muted-foreground">Clear selection</span>
                 </CommandItem>
               )}
-              {options.map((option) => (
+              {options.filter((o) => !excludeIds?.includes(o.id)).map((option) => (
                 <CommandItem
                   key={option.id}
                   value={option.id}

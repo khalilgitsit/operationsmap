@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
@@ -24,6 +24,14 @@ export function SalaryRangeField({
 }: SalaryRangeFieldProps) {
   const [editMin, setEditMin] = useState<string>(min?.toString() ?? '');
   const [editMax, setEditMax] = useState<string>(max?.toString() ?? '');
+
+  // Reset edit values when entering edit mode
+  useEffect(() => {
+    if (editing) {
+      setEditMin(min?.toString() ?? '');
+      setEditMax(max?.toString() ?? '');
+    }
+  }, [editing, min, max]);
 
   if (editing && editable) {
     return (

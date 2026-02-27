@@ -104,9 +104,9 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
     return () => clearTimeout(timer);
   }, [fetchData, search]);
 
-  // Pre-fetch reference labels for displayed data
+  // Pre-fetch reference labels for displayed data (single + multi reference columns)
   const refColumns = useMemo(
-    () => config.columns.filter((c) => c.type === 'reference' && c.referenceType),
+    () => config.columns.filter((c) => (c.type === 'reference' || c.type === 'multi_reference') && c.referenceType),
     [config.columns]
   );
 
@@ -114,9 +114,20 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
     if (data.length === 0 || refColumns.length === 0) return;
 
     for (const col of refColumns) {
-      const ids = [...new Set(
-        data.map((row) => row[col.key]).filter((v): v is string => typeof v === 'string')
-      )];
+      let ids: string[];
+      if (col.type === 'multi_reference') {
+        // Flatten all UUID arrays from rows
+        ids = [...new Set(
+          data.flatMap((row) => {
+            const v = row[col.key];
+            return Array.isArray(v) ? (v as string[]) : [];
+          })
+        )];
+      } else {
+        ids = [...new Set(
+          data.map((row) => row[col.key]).filter((v): v is string => typeof v === 'string')
+        )];
+      }
       if (ids.length === 0) continue;
       // Skip IDs we already have labels for
       const missing = ids.filter((id) => !referenceLabels[col.key]?.[id]);
@@ -277,6 +288,34 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
             ))}
           </div>
         ) : '—';
+
+      case 'multi_reference': {
+        const arr = Array.isArray(value) ? (value as string[]) : [];
+        if (arr.length === 0) return <span className="text-muted-foreground">—</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {arr.map((id) => {
+              const label = referenceLabels[col.key]?.[id];
+              return (
+                <span key={id} className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                  {label || <span className="text-muted-foreground italic">…</span>}
+                </span>
+              );
+            })}
+          </div>
+        );
+      }
+
+      case 'salary_range': {
+        const minVal = row.salary_range_min as number | null;
+        const maxVal = row.salary_range_max as number | null;
+        if (minVal == null && maxVal == null) return '—';
+        const fmt = (v: number) =>
+          new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
+        if (minVal != null && maxVal != null) return `${fmt(minVal)} – ${fmt(maxVal)}`;
+        if (minVal != null) return `From ${fmt(minVal)}`;
+        return `Up to ${fmt(maxVal!)}`;
+      }
 
       default:
         return (
