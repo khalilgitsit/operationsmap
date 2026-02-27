@@ -15,8 +15,10 @@ export type FieldType =
   | 'url'
   | 'image'
   | 'reference'
+  | 'multi_reference'
   | 'boolean'
-  | 'computed';
+  | 'computed'
+  | 'salary_range';
 
 export interface ColumnConfig {
   key: string;
@@ -269,7 +271,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'title', label: 'Title', type: 'text', sortable: true, filterable: true, editable: true },
       { key: 'status', label: 'Status', type: 'select', sortable: true, filterable: true, editable: true, options: roleStatuses },
       { key: 'primary_function_id', label: 'Primary Function', type: 'reference', filterable: true, editable: true, referenceType: 'function' },
-      { key: 'brief_description', label: 'Brief Description', type: 'text', visible: false, editable: true },
+      { key: 'other_function_ids', label: 'Other Functions', type: 'multi_reference', editable: true, referenceType: 'function' },
+      { key: 'brief_description', label: 'Brief Description', type: 'text', editable: true },
+      { key: 'salary_range', label: 'Salary Range', type: 'salary_range', editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
     ],
     quickCreateFields: [

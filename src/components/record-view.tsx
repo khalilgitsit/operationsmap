@@ -10,6 +10,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/status-badge';
 import { ReferenceCombobox } from '@/components/reference-combobox';
+import { MultiReferenceField } from '@/components/multi-reference-field';
+import { SalaryRangeField } from '@/components/salary-range-field';
+import { BenefitsField } from '@/components/benefits-field';
 import { PreviewPanel } from '@/components/preview-panel';
 import { QuickCreatePanel } from '@/components/quick-create-panel';
 import { VideoEmbed } from '@/components/video-embed';
@@ -462,6 +465,57 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                 const value = record[col.key];
                 const isEditing = editingField === col.key;
 
+                // Multi-reference field (e.g., Other Functions on Role)
+                if (col.type === 'multi_reference') {
+                  return (
+                    <div key={col.key} className="flex items-start gap-4 py-2">
+                      <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{col.label}</span>
+                      <div className="flex-1 min-w-0">
+                        <MultiReferenceField
+                          referenceType={col.referenceType!}
+                          value={Array.isArray(value) ? value as string[] : []}
+                          onChange={(ids) => handleFieldSave(col.key, ids)}
+                          editable={col.editable}
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Salary range field (renders two side-by-side currency inputs)
+                if (col.type === 'salary_range') {
+                  return (
+                    <div key={col.key} className="flex items-start gap-4 py-2">
+                      <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{col.label}</span>
+                      <div className="flex-1 min-w-0">
+                        <SalaryRangeField
+                          min={record.salary_range_min as number | null}
+                          max={record.salary_range_max as number | null}
+                          editing={isEditing}
+                          editable={col.editable}
+                          onSave={(min, max) => {
+                            startTransition(async () => {
+                              const result = await updateRecord(config.type, recordId, {
+                                salary_range_min: min,
+                                salary_range_max: max,
+                              });
+                              if (result.success) {
+                                setRecord(result.data);
+                                fetchActivities();
+                                toast.success('Saved');
+                              } else {
+                                toast.error(result.error);
+                              }
+                              setEditingField(null);
+                            });
+                          }}
+                          onCancel={() => setEditingField(null)}
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div key={col.key} className="flex items-start gap-4 py-2">
                     <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{col.label}</span>
@@ -527,6 +581,16 @@ export function RecordView({ config, recordId }: RecordViewProps) {
               return null;
             })}
           </div>
+
+          {/* 3.7.2: Benefits section for Person records */}
+          {config.type === 'person' && (
+            <div className="flex items-start gap-4 py-2">
+              <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">Benefits</span>
+              <div className="flex-1 min-w-0">
+                <BenefitsField personId={recordId} />
+              </div>
+            </div>
+          )}
 
           {/* Video embed for core_activity */}
           {config.type === 'core_activity' && !!record.video_url && (
