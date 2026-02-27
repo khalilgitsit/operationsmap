@@ -405,38 +405,25 @@ This document contains the **active and future** implementation phases for Ops M
 
 ---
 
-### Phase 3.8: Tools Page Redesign
+### Phase 3.8: Tools Page Redesign ✅ COMPLETED
 
 **Goal:** Make the Tools page scalable for multiple tools with proper navigation.
 
-#### 3.8.1 Tools Index Page
+**Completed:** Redesigned tools as index/grid + detail pages with breadcrumb navigation.
 
-**Requirements:**
+#### 3.8.1 Tools Index Page ✅
 
-- [ ] Redesign `/tools` as an index/grid page showing one card per tool
-- [ ] Each tool card shows: icon (e.g., Terminal icon), tool name, brief 1-sentence description, and a link/button to view details
-- [ ] Currently there is only one tool (Ops Import Skill) — the card layout should accommodate 2-4 cards per row
-- [ ] Clicking a card navigates to `/tools/[slug]` (e.g., `/tools/ops-import-skill`)
+- [x] Redesigned `/tools` as an index/grid page showing one card per tool
+- [x] Each tool card shows: icon (Terminal), tool name, brief 1-sentence description, and "View details" link
+- [x] Grid layout accommodates 2-4 cards per row (responsive: 1/2/3/4 columns)
+- [x] Clicking a card navigates to `/tools/ops-import-skill`
 
-**Acceptance criteria:**
-- `/tools` shows a grid of tool cards (currently just one card for Ops Import Skill)
-- The page looks intentional, not empty — if only one card, it's left-aligned in the grid, not stretched full width
+#### 3.8.2 Tool Detail Pages with Breadcrumb ✅
 
----
-
-#### 3.8.2 Tool Detail Pages with Breadcrumb
-
-**Requirements:**
-
-- [ ] Create `/tools/ops-import-skill/page.tsx` and move all current Ops Import Skill content from `/tools/page.tsx` into it
-- [ ] Add breadcrumb navigation at the top of the detail page: "Tools > Ops Import Skill" — "Tools" links back to `/tools`
-- [ ] Keep all existing detail content (description, what it does, installation steps, individual file downloads)
-- [ ] The route structure `/tools/[slug]` should be flexible for adding more tools later
-
-**Acceptance criteria:**
-- Navigating to `/tools` shows the card grid
-- Clicking the Ops Import Skill card goes to `/tools/ops-import-skill`
-- Breadcrumb at top allows navigating back to the tools index
+- [x] Created `/tools/ops-import-skill/page.tsx` with all Ops Import Skill content moved from `/tools/page.tsx`
+- [x] Added breadcrumb navigation via PageHeader backHref: "Tools" arrow link back to `/tools`
+- [x] All existing detail content preserved (description, what it does, installation steps, individual file downloads)
+- [x] Route structure `/tools/[slug]` is flexible for adding more tools later
 
 ---
 
