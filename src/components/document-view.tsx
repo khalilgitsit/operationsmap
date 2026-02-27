@@ -1034,6 +1034,11 @@ function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
     description = activity.new_value as string;
   } else if (fieldName === '_deleted') {
     description = 'Deleted this record';
+  } else if (fieldName === 'items') {
+    const count = Array.isArray(activity.new_value) ? activity.new_value.length : 0;
+    description = `Updated checklist items (${count} item${count !== 1 ? 's' : ''})`;
+  } else if (fieldName === 'content') {
+    description = 'Updated content';
   } else {
     description = `Updated ${fieldName}: "${fmtVal(activity.old_value)}" → "${fmtVal(activity.new_value)}"`;
   }
@@ -1052,6 +1057,8 @@ function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
 
 function fmtVal(v: unknown): string {
   if (v === null || v === undefined) return '(empty)';
+  if (Array.isArray(v)) return `${v.length} item${v.length !== 1 ? 's' : ''}`;
+  if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
 
