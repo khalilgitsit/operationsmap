@@ -145,7 +145,7 @@ export function BenefitsField({ personId, editable = true }: BenefitsFieldProps)
               Add benefit
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[250px] p-0" align="start">
+          <PopoverContent className="w-[250px] p-0 z-50" align="start" side="bottom" sideOffset={4}>
             <Command shouldFilter={false}>
               <CommandInput
                 placeholder="Search benefits..."
@@ -204,7 +204,10 @@ export function BenefitsField({ personId, editable = true }: BenefitsFieldProps)
                         size="sm"
                         variant="ghost"
                         className="h-7 w-7 p-0 shrink-0"
-                        onClick={handleCreateNew}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCreateNew();
+                        }}
                       >
                         <Check className="h-3 w-3" />
                       </Button>

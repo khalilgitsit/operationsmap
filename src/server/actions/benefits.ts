@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import { getAuthContextSafe } from '@/lib/auth';
 import type { ActionResult } from '@/types/actions';
 
@@ -9,6 +9,9 @@ interface BenefitOption {
   label: string;
 }
 
+// Use service role client to bypass RLS (benefit_options and person_benefits
+// have RLS policies that reference user_organizations, which also has RLS,
+// causing infinite recursion with the regular client).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fromTable(supabase: any, table: string): any {
   return supabase.from(table);
@@ -17,7 +20,7 @@ function fromTable(supabase: any, table: string): any {
 export async function listBenefitOptions(): Promise<ActionResult<BenefitOption[]>> {
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { data, error } = await fromTable(supabase, 'benefit_options')
     .select('id, label')
@@ -31,7 +34,7 @@ export async function listBenefitOptions(): Promise<ActionResult<BenefitOption[]
 export async function getPersonBenefits(personId: string): Promise<ActionResult<BenefitOption[]>> {
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { data, error } = await fromTable(supabase, 'person_benefits')
     .select('benefit_option_id, benefit_options(id, label)')
@@ -54,7 +57,7 @@ export async function addPersonBenefit(
 ): Promise<ActionResult<null>> {
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { error } = await fromTable(supabase, 'person_benefits')
     .insert({
@@ -73,7 +76,7 @@ export async function removePersonBenefit(
 ): Promise<ActionResult<null>> {
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { error } = await fromTable(supabase, 'person_benefits')
     .delete()
@@ -87,7 +90,7 @@ export async function removePersonBenefit(
 export async function createBenefitOption(label: string): Promise<ActionResult<BenefitOption>> {
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { data, error } = await fromTable(supabase, 'benefit_options')
     .insert({
@@ -105,7 +108,7 @@ export async function createBenefitOption(label: string): Promise<ActionResult<B
 export async function seedDefaultBenefits(): Promise<ActionResult<null>> {
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const defaults = [
     'Health Insurance',
