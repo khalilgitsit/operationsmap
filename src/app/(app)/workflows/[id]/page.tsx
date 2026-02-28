@@ -78,7 +78,7 @@ import {
   type WorkflowMapProcess,
   type WorkflowMapCoreActivity,
 } from '@/server/actions/workflow';
-import { searchRecords } from '@/server/actions/generic';
+import { searchRecords, updateRecord } from '@/server/actions/generic';
 import { getWorkflowExportData } from '@/server/actions/export';
 import { exportWorkflow, downloadMarkdown, copyToClipboard } from '@/lib/markdown-export';
 import { ImportDialog } from '@/components/import-dialog';
@@ -102,6 +102,7 @@ import {
   Copy,
   FileDown,
   Upload,
+  AlertTriangle,
 } from 'lucide-react';
 
 type VisibilityMode = 'all' | 'active' | 'not-archived';
@@ -129,6 +130,19 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
     if (typeof window !== 'undefined') return (localStorage.getItem('wf-visibility') as VisibilityMode) || 'not-archived';
     return 'not-archived';
   });
+  const [showGaps, setShowGaps] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('wf-show-gaps') === 'true';
+    return false;
+  });
+  const [gapIds, setGapIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`wf-gaps-${workflowId}`);
+        return stored ? new Set(JSON.parse(stored)) : new Set();
+      } catch { return new Set(); }
+    }
+    return new Set();
+  });
 
   // Panel states
   const [previewState, setPreviewState] = useState<{ type: string; id: string } | null>(null);
@@ -142,6 +156,9 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
 
   // Drag state
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
+
+  // Scroll preservation
+  const savedScrollRef = useRef<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -158,6 +175,28 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
     setLoading(false);
   }, [workflowId]);
 
+  // Scroll-preserving version of fetchData for add operations
+  const fetchDataPreservingScroll = useCallback(async () => {
+    savedScrollRef.current = window.scrollY;
+    const result = await getWorkflowMapData(workflowId);
+    if (result.success) {
+      setData(result.data);
+      setTitleValue(result.data.title);
+      setStatusValue(result.data.status);
+    }
+  }, [workflowId]);
+
+  // Restore scroll position after data updates
+  useEffect(() => {
+    if (savedScrollRef.current !== null) {
+      const scrollY = savedScrollRef.current;
+      savedScrollRef.current = null;
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY);
+      });
+    }
+  }, [data]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -167,6 +206,8 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
   useEffect(() => { localStorage.setItem('wf-show-software', String(showSoftware)); }, [showSoftware]);
   useEffect(() => { localStorage.setItem('wf-show-roles', String(showRoles)); }, [showRoles]);
   useEffect(() => { localStorage.setItem('wf-visibility', visibilityMode); }, [visibilityMode]);
+  useEffect(() => { localStorage.setItem('wf-show-gaps', String(showGaps)); }, [showGaps]);
+  useEffect(() => { localStorage.setItem(`wf-gaps-${workflowId}`, JSON.stringify([...gapIds])); }, [gapIds, workflowId]);
 
   // Filter by visibility
   const filterByStatus = useCallback((status: string) => {
@@ -175,6 +216,25 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
     if (visibilityMode === 'not-archived') return status !== 'Archived';
     return true;
   }, [visibilityMode]);
+
+  const toggleGap = useCallback((id: string, objectType: string) => {
+    setGapIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    // Also persist to database custom_properties (fire-and-forget)
+    startTransition(async () => {
+      const isGap = !gapIds.has(id);
+      await updateRecord(objectType, id, {
+        custom_properties: { is_gap: isGap },
+      });
+    });
+  }, [gapIds, startTransition]);
 
   const handleTitleSave = async () => {
     if (!titleValue.trim() || titleValue === data?.title) {
@@ -198,7 +258,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
         }
       }
       await createPhase(workflowId, position);
-      await fetchData();
+      await fetchDataPreservingScroll();
     });
   };
 
@@ -207,7 +267,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
     startTransition(async () => {
       await deletePhase(deletePhaseId);
       setDeletePhaseId(null);
-      await fetchData();
+      await fetchDataPreservingScroll();
     });
   };
 
@@ -252,7 +312,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
 
   return (
     <TooltipProvider>
-      <div>
+      <div className="max-w-5xl mx-auto">
         <PageHeader
           title=""
           backHref="/workflows"
@@ -327,6 +387,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
             <ToggleButton active={showPeople} onClick={() => setShowPeople((v) => !v)} icon={<Users className="h-4 w-4" />} label="People" />
             <ToggleButton active={showSoftware} onClick={() => setShowSoftware((v) => !v)} icon={<Monitor className="h-4 w-4" />} label="Software" />
             <ToggleButton active={showRoles} onClick={() => setShowRoles((v) => !v)} icon={<Shield className="h-4 w-4" />} label="Roles" />
+            <ToggleButton active={showGaps} onClick={() => setShowGaps((v) => !v)} icon={<AlertTriangle className="h-4 w-4" />} label="Gaps" />
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -396,30 +457,36 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
                   <SortablePhase
                     phase={phase}
                     phaseNumber={phaseIndex + 1}
+                    workflowId={workflowId}
                     showPeople={showPeople}
                     showSoftware={showSoftware}
                     showRoles={showRoles}
+                    showGaps={showGaps}
+                    gapIds={gapIds}
+                    toggleGap={toggleGap}
                     filterByStatus={filterByStatus}
                     onPreview={setPreviewState}
                     onDeletePhase={setDeletePhaseId}
-                    onRefresh={fetchData}
+                    onRefresh={fetchDataPreservingScroll}
                     startTransition={startTransition}
                   />
-                  {/* Handoff blocks after this phase */}
-                  {phase.handoffs.map((handoff) => (
+                  {/* Handoff blocks after this phase (between-phase only) */}
+                  {phase.handoffs
+                    .filter((h) => h.from_phase_id !== h.to_phase_id)
+                    .map((handoff) => (
                     <HandoffBlock
                       key={handoff.id}
                       handoff={handoff}
                       onUpdate={(label) => {
                         startTransition(async () => {
                           await updateHandoffBlock(handoff.id, { label });
-                          await fetchData();
+                          await fetchDataPreservingScroll();
                         });
                       }}
                       onDelete={() => {
                         startTransition(async () => {
                           await deleteHandoffBlock(handoff.id);
-                          await fetchData();
+                          await fetchDataPreservingScroll();
                         });
                       }}
                     />
@@ -441,7 +508,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
                             nextPhase?.id || null,
                             phase.handoffs.length
                           );
-                          await fetchData();
+                          await fetchDataPreservingScroll();
                         });
                       }}
                     >
@@ -539,9 +606,13 @@ function AddPhaseButton({ onClick }: { onClick: () => void }) {
 function SortablePhase({
   phase,
   phaseNumber,
+  workflowId,
   showPeople,
   showSoftware,
   showRoles,
+  showGaps,
+  gapIds,
+  toggleGap,
   filterByStatus,
   onPreview,
   onDeletePhase,
@@ -550,9 +621,13 @@ function SortablePhase({
 }: {
   phase: WorkflowMapPhase;
   phaseNumber: number;
+  workflowId: string;
   showPeople: boolean;
   showSoftware: boolean;
   showRoles: boolean;
+  showGaps: boolean;
+  gapIds: Set<string>;
+  toggleGap: (id: string, objectType: string) => void;
   filterByStatus: (status: string) => boolean;
   onPreview: (state: { type: string; id: string }) => void;
   onDeletePhase: (id: string) => void;
@@ -694,8 +769,7 @@ function SortablePhase({
     ? localProcesses.flatMap((p) => p.coreActivities).find((ca) => ca.id === activeDragCAId)
     : null;
 
-  // Get status color for the phase header stripe
-  const statusColor = getStatusBorderColor(phase.status);
+  // Status shown via StatusBadge, not colored borders
 
   const handleTitleSave = () => {
     if (titleValue.trim() && titleValue !== phase.title) {
@@ -762,10 +836,13 @@ function SortablePhase({
   };
 
   const filteredProcesses = localProcesses.filter((p) => filterByStatus(p.status));
+  const withinPhaseHandoffs = phase.handoffs.filter((h) => h.from_phase_id === h.to_phase_id);
+
+  const isPhaseGap = gapIds.has(phase.id);
 
   return (
     <div ref={setNodeRef} style={style}>
-      <div className={`border rounded-lg overflow-hidden bg-background ${statusColor}`}>
+      <div className={`border rounded-lg overflow-hidden bg-background border-l-4 border-l-primary/20 ${showGaps && isPhaseGap ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' : ''}`}>
         {/* Phase header */}
         <div className="flex items-center gap-2 px-4 py-3 bg-muted/30 border-b">
           <button
@@ -792,11 +869,11 @@ function SortablePhase({
                 if (e.key === 'Enter') handleTitleSave();
                 if (e.key === 'Escape') { setTitleValue(phase.title); setEditingTitle(false); }
               }}
-              className="h-7 text-sm font-semibold flex-1 max-w-xs"
+              className="h-8 text-base font-semibold flex-1 max-w-xs"
             />
           ) : (
             <h3
-              className="text-sm font-semibold cursor-pointer hover:text-primary transition-colors flex-1 truncate"
+              className="text-base font-semibold cursor-pointer hover:text-primary transition-colors flex-1 truncate"
               onClick={() => setEditingTitle(true)}
               title="Click to edit title"
             >
@@ -805,6 +882,12 @@ function SortablePhase({
           )}
 
           <StatusBadge status={phase.status} />
+          {showGaps && isPhaseGap && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+              <AlertTriangle className="h-3 w-3" />
+              Gap
+            </span>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -836,6 +919,10 @@ function SortablePhase({
                   </DropdownMenuItem>
                 )
               ))}
+              <DropdownMenuItem onClick={() => toggleGap(phase.id, 'phase')}>
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                {isPhaseGap ? 'Remove Gap' : 'Mark as Gap'}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive"
                 onClick={() => onDeletePhase(phase.id)}
@@ -849,7 +936,7 @@ function SortablePhase({
 
         {/* Phase description (editable) */}
         {editingDesc && (
-          <div className="px-4 py-2 border-b bg-muted/10">
+          <div className="px-4 py-1.5 border-b bg-muted/10">
             <Textarea
               autoFocus
               value={descValue}
@@ -862,7 +949,7 @@ function SortablePhase({
         )}
         {!editingDesc && phase.description && (
           <div
-            className="px-4 py-2 border-b bg-muted/10 text-sm text-muted-foreground cursor-pointer hover:bg-muted/20"
+            className="px-4 py-1 border-b bg-muted/10 text-sm text-muted-foreground cursor-pointer hover:bg-muted/20"
             onClick={() => setEditingDesc(true)}
           >
             {phase.description}
@@ -909,12 +996,62 @@ function SortablePhase({
                         showPeople={showPeople}
                         showSoftware={showSoftware}
                         showRoles={showRoles}
+                        showGaps={showGaps}
+                        gapIds={gapIds}
+                        toggleGap={toggleGap}
                         filterByStatus={filterByStatus}
                         onPreview={onPreview}
                         onRemove={() => handleRemoveProcess(proc.id)}
                         onRefresh={onRefresh}
                         startTransition={startTransition}
                       />
+                      {/* Within-phase handoff between processes */}
+                      {procIndex < filteredProcesses.length - 1 && (
+                        <>
+                          {withinPhaseHandoffs.map((handoff) => (
+                            <HandoffBlock
+                              key={handoff.id}
+                              handoff={handoff}
+                              variant="within-phase"
+                              onUpdate={(label) => {
+                                startTransition(async () => {
+                                  await updateHandoffBlock(handoff.id, { label });
+                                  await onRefresh();
+                                });
+                              }}
+                              onDelete={() => {
+                                startTransition(async () => {
+                                  await deleteHandoffBlock(handoff.id);
+                                  await onRefresh();
+                                });
+                              }}
+                            />
+                          ))}
+                          <div className="flex justify-center py-0.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 text-[10px] text-muted-foreground/50 hover:text-primary opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+                              onClick={() => {
+                                const nextProc = filteredProcesses[procIndex + 1];
+                                startTransition(async () => {
+                                  await createHandoffBlock(
+                                    workflowId,
+                                    `Handoff: ${proc.title} → ${nextProc?.title || '...'}`,
+                                    phase.id,
+                                    phase.id,
+                                    withinPhaseHandoffs.length
+                                  );
+                                  await onRefresh();
+                                });
+                              }}
+                            >
+                              <ArrowRightLeft className="h-2.5 w-2.5 mr-0.5" />
+                              Add Handoff
+                            </Button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
 
@@ -970,6 +1107,9 @@ function SortableProcess({
   showPeople,
   showSoftware,
   showRoles,
+  showGaps,
+  gapIds,
+  toggleGap,
   filterByStatus,
   onPreview,
   onRemove,
@@ -981,6 +1121,9 @@ function SortableProcess({
   showPeople: boolean;
   showSoftware: boolean;
   showRoles: boolean;
+  showGaps: boolean;
+  gapIds: Set<string>;
+  toggleGap: (id: string, objectType: string) => void;
   filterByStatus: (status: string) => boolean;
   onPreview: (state: { type: string; id: string }) => void;
   onRemove: () => void;
@@ -1028,11 +1171,11 @@ function SortableProcess({
     });
   };
 
-  const statusColor = getStatusBorderColor(process.status);
   const filteredCAs = process.coreActivities.filter((ca) => filterByStatus(ca.status));
+  const isProcessGap = gapIds.has(process.id);
 
   return (
-    <div ref={setNodeRef} style={style} className={`border rounded-md overflow-hidden ${statusColor}`}>
+    <div ref={setNodeRef} style={style} className={`border rounded-md overflow-hidden ${showGaps && isProcessGap ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' : ''}`}>
       {/* Process header */}
       <div className="group flex items-center gap-2 px-3 py-2 bg-muted/20 border-b">
         <button
@@ -1043,7 +1186,7 @@ function SortableProcess({
           <GripVertical className="h-3.5 w-3.5" />
         </button>
 
-        <span className="text-xs font-mono text-muted-foreground">{processNumber}</span>
+        <span className="text-xs font-mono text-muted-foreground">Process {processNumber}</span>
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -1062,6 +1205,28 @@ function SortableProcess({
         </Tooltip>
 
         <StatusBadge status={process.status} />
+        {showGaps && isProcessGap && (
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+            <AlertTriangle className="h-2.5 w-2.5" />
+            Gap
+          </span>
+        )}
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => toggleGap(process.id, 'process')}
+            >
+              <AlertTriangle className={`h-3.5 w-3.5 ${isProcessGap ? 'text-blue-600' : ''}`} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p className="text-xs">{isProcessGap ? 'Remove Gap' : 'Mark as Gap'}</p>
+          </TooltipContent>
+        </Tooltip>
 
         <Button
           variant="ghost"
@@ -1085,13 +1250,17 @@ function SortableProcess({
       {/* Core Activities within this process */}
       <div className="p-2 space-y-1">
         <SortableContext items={filteredCAs.map((ca) => ca.id)} strategy={verticalListSortingStrategy}>
-          {filteredCAs.map((ca) => (
+          {filteredCAs.map((ca, caIndex) => (
             <SortableCoreActivity
               key={ca.id}
               coreActivity={ca}
+              index={caIndex}
               showPeople={showPeople}
               showSoftware={showSoftware}
               showRoles={showRoles}
+              showGaps={showGaps}
+              gapIds={gapIds}
+              toggleGap={toggleGap}
               onPreview={() => onPreview({ type: 'core_activity', id: ca.id })}
               onRemove={() => handleRemoveCA(ca.id)}
             />
@@ -1124,16 +1293,24 @@ function SortableProcess({
 // Sortable Core Activity Card
 function SortableCoreActivity({
   coreActivity,
+  index,
   showPeople,
   showSoftware,
   showRoles,
+  showGaps,
+  gapIds,
+  toggleGap,
   onPreview,
   onRemove,
 }: {
   coreActivity: WorkflowMapCoreActivity;
+  index: number;
   showPeople: boolean;
   showSoftware: boolean;
   showRoles: boolean;
+  showGaps: boolean;
+  gapIds: Set<string>;
+  toggleGap: (id: string, objectType: string) => void;
   onPreview: () => void;
   onRemove: () => void;
 }) {
@@ -1152,15 +1329,14 @@ function SortableCoreActivity({
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const router = useRouter();
-  const statusDot = getStatusDotColor(coreActivity.status);
+  const isCAGap = gapIds.has(coreActivity.id);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       tabIndex={0}
-      className="group flex items-start gap-2 px-2 py-1.5 rounded hover:bg-muted/50 focus:bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors cursor-pointer"
+      className={`group flex items-start gap-2 px-2 py-1.5 rounded hover:bg-muted/50 focus:bg-muted/50 focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors cursor-pointer ${showGaps && isCAGap ? 'bg-blue-50 dark:bg-blue-950/20 ring-1 ring-blue-200 dark:ring-blue-800' : ''}`}
       onClick={onPreview}
       onKeyDown={(e) => {
         if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -1170,7 +1346,7 @@ function SortableCoreActivity({
       }}
     >
       <button
-        className="mt-1 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+        className="mt-0.5 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
         {...attributes}
         {...listeners}
         onClick={(e) => e.stopPropagation()}
@@ -1178,14 +1354,16 @@ function SortableCoreActivity({
         <GripVertical className="h-3 w-3" />
       </button>
 
-      <div className={`mt-1.5 h-2 w-2 rounded-full flex-shrink-0 ${statusDot}`} title={coreActivity.status} />
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-mono flex-shrink-0" title={coreActivity.status}>
+        {index + 1}
+      </span>
 
       <div className="flex-1 min-w-0">
         <span
           className="text-sm hover:text-primary hover:underline cursor-pointer transition-colors"
           onClick={(e) => {
             e.stopPropagation();
-            router.push(`/core-activities/${coreActivity.id}`);
+            onPreview();
           }}
         >
           {coreActivity.title}
@@ -1229,6 +1407,25 @@ function SortableCoreActivity({
           </div>
         )}
       </div>
+
+      {showGaps && isCAGap && (
+        <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 flex-shrink-0">
+          Gap
+        </span>
+      )}
+
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ${isCAGap ? 'text-blue-600' : 'text-muted-foreground'}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleGap(coreActivity.id, 'core_activity');
+        }}
+        title={isCAGap ? 'Remove Gap' : 'Mark as Gap'}
+      >
+        <AlertTriangle className="h-3 w-3" />
+      </Button>
 
       <Button
         variant="ghost"
@@ -1438,20 +1635,26 @@ function AddCoreActivityForm({
 // Handoff Block Component
 function HandoffBlock({
   handoff,
+  variant = 'between-phase',
   onUpdate,
   onDelete,
 }: {
   handoff: { id: string; label: string };
+  variant?: 'between-phase' | 'within-phase';
   onUpdate: (label: string) => void;
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(handoff.label);
 
+  const isWithinPhase = variant === 'within-phase';
+  const pillBg = isWithinPhase ? 'bg-[#d1ecf1] border-[#b8daff] text-[#0c5460]' : 'bg-[#fef3cd] border-[#e8d5a0] text-[#856404]';
+  const deleteColor = isWithinPhase ? 'text-[#0c5460] hover:text-[#891a1a]' : 'text-[#856404] hover:text-[#891a1a]';
+
   return (
     <div className="flex items-center justify-center gap-2 py-2 px-4">
       <div className="flex-1 h-px bg-border" />
-      <div className="group flex items-center gap-2 px-3 py-1.5 bg-[#fef3cd] border border-[#e8d5a0] rounded-full text-[#856404]">
+      <div className={`group flex items-center gap-2 px-3 py-1.5 border rounded-full min-w-[200px] ${pillBg}`}>
         <ArrowRightLeft className="h-3.5 w-3.5 flex-shrink-0" />
         {editing ? (
           <Input
@@ -1469,7 +1672,7 @@ function HandoffBlock({
               }
               if (e.key === 'Escape') { setValue(handoff.label); setEditing(false); }
             }}
-            className="h-6 text-xs bg-transparent border-none p-0 min-w-[200px]"
+            className="h-6 text-xs bg-transparent border-none p-0 min-w-[200px] w-full"
           />
         ) : (
           <span
@@ -1482,7 +1685,7 @@ function HandoffBlock({
         <Button
           variant="ghost"
           size="sm"
-          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-[#856404] hover:text-[#891a1a]"
+          className={`h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity ${deleteColor}`}
           onClick={onDelete}
         >
           <X className="h-3 w-3" />
@@ -1491,18 +1694,6 @@ function HandoffBlock({
       <div className="flex-1 h-px bg-border" />
     </div>
   );
-}
-
-// Helper: status border color for the left stripe
-function getStatusBorderColor(status: string): string {
-  switch (status) {
-    case 'Draft': return 'border-l-4 border-l-[#9e9c9a]';
-    case 'In Review': return 'border-l-4 border-l-[#856404]';
-    case 'Active': return 'border-l-4 border-l-[#155724]';
-    case 'Needs Update': return 'border-l-4 border-l-[#984c0c]';
-    case 'Archived': return 'border-l-4 border-l-[#891a1a]';
-    default: return 'border-l-4 border-l-[#c5c3c1]';
-  }
 }
 
 // Helper: status dot color
