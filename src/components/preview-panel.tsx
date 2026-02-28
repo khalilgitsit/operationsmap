@@ -49,6 +49,7 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
   const [editingTitle, setEditingTitle] = useState(false);
   const [addingAssociation, setAddingAssociation] = useState<string | null>(null);
   const [referenceLabels, setReferenceLabels] = useState<Record<string, { label: string; href: string }>>({});
+  const [multiReferenceLabels, setMultiReferenceLabels] = useState<Record<string, { label: string; href: string }[]>>({});
   // Stack for navigating between records within the panel
   const [stack, setStack] = useState<{ objectType: string; recordId: string }[]>([]);
 
@@ -96,6 +97,30 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
         }
       }
       setReferenceLabels(newLabels);
+
+      // Resolve multi_reference fields
+      const multiRefCols = config.columns.filter(
+        (col: ColumnConfig) => col.type === 'multi_reference' && col.referenceType && recordResult.data[col.key]
+      );
+      const newMultiLabels: Record<string, { label: string; href: string }[]> = {};
+      for (const col of multiRefCols) {
+        const ids = recordResult.data[col.key];
+        if (!Array.isArray(ids) || ids.length === 0) continue;
+        const refConfig = OBJECT_CONFIGS[col.referenceType!];
+        if (!refConfig) continue;
+        const resolved: { label: string; href: string }[] = [];
+        for (const id of ids as string[]) {
+          const refResult = await getRecord(col.referenceType!, id);
+          if (refResult.success && refResult.data) {
+            resolved.push({
+              label: getRecordTitle(refResult.data, refConfig),
+              href: refConfig.recordHref(id),
+            });
+          }
+        }
+        newMultiLabels[col.key] = resolved;
+      }
+      setMultiReferenceLabels(newMultiLabels);
     }
 
     setLoading(false);
@@ -304,7 +329,24 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
                                   {referenceLabels[col.key].label}
                                 </Link>
                               ) : (
-                                <span className="text-muted-foreground italic">Loading...</span>
+                                <span className="text-muted-foreground">—</span>
+                              )
+                            ) : col.type === 'multi_reference' && Array.isArray(record[col.key]) && (record[col.key] as string[]).length > 0 ? (
+                              multiReferenceLabels[col.key] ? (
+                                <span className="flex flex-wrap gap-1 justify-end">
+                                  {multiReferenceLabels[col.key].map((ref, i) => (
+                                    <Link
+                                      key={i}
+                                      href={ref.href}
+                                      className="text-primary hover:underline text-xs bg-muted/50 px-1.5 py-0.5 rounded"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {ref.label}
+                                    </Link>
+                                  ))}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
                               )
                             ) : (
                               (record[col.key] as string) || '\u2014'

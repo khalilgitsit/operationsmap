@@ -268,9 +268,9 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters, onP
       case 'reference': {
         const refId = value as string | null;
         if (!refId) return (
-          <span
+          <div
             className={cn(
-              'text-muted-foreground',
+              'text-muted-foreground w-full min-h-[20px]',
               col.editable && 'cursor-pointer hover:text-primary',
             )}
             onClick={(e) => {
@@ -282,12 +282,12 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters, onP
             }}
           >
             —
-          </span>
+          </div>
         );
         const label = referenceLabels[col.key]?.[refId];
         return (
-          <span
-            className={cn(col.editable && 'cursor-pointer hover:text-primary')}
+          <div
+            className={cn('w-full min-h-[20px]', col.editable && 'cursor-pointer hover:text-primary')}
             onClick={(e) => {
               e.stopPropagation();
               if (col.editable) {
@@ -296,8 +296,8 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters, onP
               }
             }}
           >
-            {label || <span className="text-muted-foreground italic">Loading…</span>}
-          </span>
+            {label || <span className="text-muted-foreground">—</span>}
+          </div>
         );
       }
 

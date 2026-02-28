@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/status-badge';
@@ -1141,10 +1140,6 @@ function RecordTitleBar({
             >
               {title || 'Untitled'}
             </h1>
-            {/* 3.4.2: Object type badge */}
-            <Badge variant="secondary" className="text-[10px] shrink-0">
-              {config.label}
-            </Badge>
           </div>
         )}
       </div>
