@@ -23,6 +23,7 @@ export function ListPage({ config, backHref, backLabel }: ListPageProps) {
       <DataTable
         config={config}
         onCreateNew={() => setCreateOpen(true)}
+        onPreview={(row) => setPreviewState({ type: config.type, id: row.id as string })}
       />
 
       <QuickCreatePanel

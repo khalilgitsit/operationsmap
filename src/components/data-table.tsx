@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select';
 import { StatusBadge } from '@/components/status-badge';
 import { ReferenceCombobox } from '@/components/reference-combobox';
-import { ArrowUpDown, ArrowUp, ArrowDown, Plus, Search, Columns3, X } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Plus, Search, Columns3, X, Eye } from 'lucide-react';
 import { type ColumnConfig, type ObjectConfig, getRecordTitle } from '@/lib/object-config';
 import { listRecords, updateRecord, searchRecords } from '@/server/actions/generic';
 import { toast } from 'sonner';
@@ -41,6 +41,8 @@ interface DataTableProps {
   onRowClick?: (record: Record<string, unknown>) => void;
   /** Pre-applied filter (e.g., from URL params) */
   initialFilters?: Record<string, string>;
+  /** Callback when preview (eye) icon is clicked on a row */
+  onPreview?: (row: Record<string, unknown>) => void;
 }
 
 interface SortState {
@@ -48,7 +50,7 @@ interface SortState {
   direction: 'asc' | 'desc';
 }
 
-export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: DataTableProps) {
+export function DataTable({ config, onCreateNew, onRowClick, initialFilters, onPreview }: DataTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [data, setData] = useState<Record<string, unknown>[]>([]);
@@ -58,12 +60,35 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
   const [sort, setSort] = useState<SortState>({ field: 'created_at', direction: 'desc' });
   const [filters, setFilters] = useState<Record<string, string>>(initialFilters || {});
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    // Try to restore from localStorage
+    const storageKey = `ops-table-columns-${config.type}`;
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return new Set(parsed);
+        }
+      }
+    } catch {
+      // Ignore parse errors, fall through to defaults
+    }
     const visible = new Set<string>();
     config.columns.forEach((col) => {
       if (col.visible !== false) visible.add(col.key);
     });
     return visible;
   });
+  // Persist column visibility to localStorage
+  useEffect(() => {
+    const storageKey = `ops-table-columns-${config.type}`;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(Array.from(visibleColumns)));
+    } catch {
+      // Ignore storage errors (e.g., private browsing)
+    }
+  }, [visibleColumns, config.type]);
+
   const [editingCell, setEditingCell] = useState<{ rowId: string; colKey: string } | null>(null);
   const [editValue, setEditValue] = useState<unknown>(null);
   const [referenceLabels, setReferenceLabels] = useState<Record<string, Record<string, string>>>({});
@@ -242,7 +267,23 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
 
       case 'reference': {
         const refId = value as string | null;
-        if (!refId) return <span className="text-muted-foreground">—</span>;
+        if (!refId) return (
+          <span
+            className={cn(
+              'text-muted-foreground',
+              col.editable && 'cursor-pointer hover:text-primary',
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (col.editable) {
+                setEditingCell({ rowId: row.id as string, colKey: col.key });
+                setEditValue(null);
+              }
+            }}
+          >
+            —
+          </span>
+        );
         const label = referenceLabels[col.key]?.[refId];
         return (
           <span
@@ -475,7 +516,13 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {config.columns.map((col) => (
+            {config.columns
+              .filter((col) => {
+                // Lock title column(s) — always visible, not toggleable
+                const titleKeys = config.titleFields || [config.titleField];
+                return !titleKeys.includes(col.key);
+              })
+              .map((col) => (
               <DropdownMenuCheckboxItem
                 key={col.key}
                 checked={visibleColumns.has(col.key)}
@@ -514,8 +561,12 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
         <Table>
           <TableHeader>
             <TableRow>
-              {displayColumns.map((col) => (
-                <TableHead key={col.key} className={col.width ? `w-[${col.width}]` : undefined}>
+              {displayColumns.map((col, colIdx) => (
+                <TableHead key={col.key} className={cn(
+                  'normal-case',
+                  col.width && `w-[${col.width}]`,
+                  colIdx < displayColumns.length - 1 && 'border-r border-border',
+                )}>
                   {col.sortable ? (
                     <button
                       className="flex items-center hover:text-foreground -ml-2 px-2 py-1 rounded"
@@ -576,7 +627,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
               data.map((row) => (
                 <TableRow
                   key={row.id as string}
-                  className={cn('cursor-pointer hover:bg-muted/50', isPending && 'opacity-50')}
+                  className={cn('cursor-pointer hover:bg-muted/50 group', isPending && 'opacity-50')}
                   role="link"
                   tabIndex={0}
                   onClick={() => handleRowClick(row)}
@@ -588,21 +639,38 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
                   }}
                 >
                   {displayColumns.map((col, colIndex) => (
-                    <TableCell key={col.key}>
+                    <TableCell key={col.key} className={cn(
+                      colIndex < displayColumns.length - 1 && 'border-r border-border',
+                    )}>
                       {colIndex === 0 ? (
-                        <Link
-                          href={config.recordHref(row.id as string)}
-                          className="font-medium text-foreground hover:text-primary cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onRowClick) {
-                              e.preventDefault();
-                              onRowClick(row);
-                            }
-                          }}
-                        >
-                          {getRecordTitle(row, config)}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          {onPreview && (
+                            <button
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted shrink-0"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onPreview(row);
+                              }}
+                              title="Preview"
+                            >
+                              <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          )}
+                          <Link
+                            href={config.recordHref(row.id as string)}
+                            className="font-medium text-foreground hover:text-primary cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onRowClick) {
+                                e.preventDefault();
+                                onRowClick(row);
+                              }
+                            }}
+                          >
+                            {getRecordTitle(row, config)}
+                          </Link>
+                        </div>
                       ) : (
                         renderCellContent(col, row)
                       )}
