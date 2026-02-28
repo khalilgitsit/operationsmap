@@ -1,0 +1,5 @@
+{
+  "name": "ship",
+  "version": "2.0.0",
+  "description": "Autonomous implement → verify → review → ship workflow with worktree isolation, reviewer subagent, TDD mode, and inner retry loops."
+}
