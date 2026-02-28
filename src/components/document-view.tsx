@@ -363,7 +363,7 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
               {editingField === config.titleField ? (
                 <Input
                   autoFocus
-                  className="text-2xl font-bold h-auto py-1 border-none shadow-none focus-visible:ring-0 px-0 text-foreground"
+                  className="text-2xl font-medium h-auto py-1 border-none shadow-none focus-visible:ring-0 px-0 text-foreground"
                   defaultValue={title}
                   onBlur={(e) => handleFieldSave(config.titleField, e.target.value || null)}
                   onKeyDown={(e) => {
@@ -374,7 +374,7 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1
-                    className="text-2xl font-bold cursor-pointer hover:text-primary/80 transition-colors"
+                    className="text-2xl font-medium cursor-pointer hover:text-primary/80 transition-colors"
                     onClick={() => setEditingField(config.titleField)}
                   >
                     {title || 'Untitled'}
@@ -470,7 +470,7 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
               <div className="p-4 space-y-6">
                 {/* Associations */}
                 <div>
-                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Associations</h2>
+                  <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Associations</h2>
                   <div className="space-y-3">
                     {config.associations
                       .filter((assoc) => assocVisibility?.[config.type]?.[assoc.junctionTable] !== false)
@@ -498,7 +498,7 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
 
                 {/* Activity Feed */}
                 <div>
-                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Activity</h2>
+                  <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Activity</h2>
 
                   {/* Comment Input */}
                   <div className="flex gap-2 mb-3">

@@ -101,9 +101,9 @@ function getOriginBadge(origin: UnifiedProperty['origin']) {
     case 'default':
       return <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Default</Badge>;
     case 'custom':
-      return <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-700 hover:bg-blue-100">Custom</Badge>;
+      return <Badge className="text-[10px] px-1.5 py-0 bg-[#d6e5f5] text-[#0b2d5d] hover:bg-[#d6e5f5]">Custom</Badge>;
     case 'computed':
-      return <Badge className="text-[10px] px-1.5 py-0 bg-purple-100 text-purple-700 hover:bg-purple-100">Computed</Badge>;
+      return <Badge className="text-[10px] px-1.5 py-0 bg-[#e8dff5] text-[#4a2d82] hover:bg-[#e8dff5]">Computed</Badge>;
   }
 }
 
@@ -803,14 +803,14 @@ export default function ObjectConfigPage() {
           {/* Status Options Tab */}
           <TabsContent value="status" className="space-y-4 mt-4">
             {isOperational ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+              <div className="rounded-md border border-[#e8d5a0] bg-[#fef3cd] p-4">
                 <div className="flex items-start gap-2">
-                  <Lock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <Lock className="h-4 w-4 text-[#856404] mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-amber-800">
+                    <p className="text-sm font-medium text-[#856404]">
                       Status options for operational objects cannot be customized
                     </p>
-                    <p className="text-xs text-amber-700 mt-1">
+                    <p className="text-xs text-[#856404] mt-1">
                       Functions, Subfunctions, Processes, and Core Activities use a fixed lifecycle:
                       Draft, In Review, Active, Needs Update, Archived.
                     </p>

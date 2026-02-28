@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TYPE_COLORS, DEFAULT_BADGE_COLORS } from '@/lib/object-config';
 import { globalSearch, type SearchResult } from '@/server/actions/search';
 
 interface SearchResultGroup {
@@ -15,17 +16,6 @@ interface SearchResultGroup {
   results: SearchResult[];
   totalCount: number;
 }
-
-const TYPE_COLORS: Record<string, string> = {
-  function: 'bg-blue-100 text-blue-700',
-  subfunction: 'bg-sky-100 text-sky-700',
-  process: 'bg-purple-100 text-purple-700',
-  core_activity: 'bg-amber-100 text-amber-700',
-  person: 'bg-green-100 text-green-700',
-  role: 'bg-teal-100 text-teal-700',
-  software: 'bg-pink-100 text-pink-700',
-  workflow: 'bg-indigo-100 text-indigo-700',
-};
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
@@ -137,7 +127,7 @@ export default function SearchPage() {
                         >
                           <span
                             className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                              TYPE_COLORS[result.objectType] || 'bg-gray-100 text-gray-700'
+                              TYPE_COLORS[result.objectType] || DEFAULT_BADGE_COLORS
                             }`}
                           >
                             {result.objectType === 'core_activity'

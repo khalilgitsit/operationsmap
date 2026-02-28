@@ -67,10 +67,10 @@ export function TopBar({ userEmail, displayName, avatarUrl, activeOrgId }: TopBa
 
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4">
+      <header className="flex h-12 shrink-0 items-center gap-4 border-b bg-card px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <div className="flex h-7 w-7 items-center justify-center rounded bg-primary text-primary-foreground text-xs font-bold">
+        <Link href="/" className="flex items-center gap-2 font-medium">
+          <div className="flex h-7 w-7 items-center justify-center rounded-sm bg-primary text-primary-foreground text-xs font-medium">
             OM
           </div>
           <span className="hidden sm:inline">Ops Map</span>

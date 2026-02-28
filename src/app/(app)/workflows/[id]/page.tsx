@@ -297,24 +297,14 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Draft">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-gray-400" />
-                  Draft
-                </div>
-              </SelectItem>
-              <SelectItem value="Active">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  Active
-                </div>
-              </SelectItem>
-              <SelectItem value="Archived">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                  Archived
-                </div>
-              </SelectItem>
+              {['Draft', 'Active', 'Archived'].map((s) => (
+                <SelectItem key={s} value={s}>
+                  <div className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full ${getStatusDotColor(s)}`} />
+                    {s}
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -1219,7 +1209,7 @@ function SortableCoreActivity({
         {showSoftware && coreActivity.software.length > 0 && (
           <div className="flex items-center gap-1 mt-1 flex-wrap">
             {coreActivity.software.map((s) => (
-              <span key={s.id} className="inline-flex items-center gap-0.5 text-[9px] bg-blue-50 text-blue-700 px-1 py-0.5 rounded" title={s.title}>
+              <span key={s.id} className="inline-flex items-center gap-0.5 text-[9px] bg-[#d6e5f5] text-[#0b2d5d] px-1 py-0.5 rounded" title={s.title}>
                 <Monitor className="h-2.5 w-2.5" />
                 {s.title.length > 10 ? s.title.slice(0, 10) + '...' : s.title}
               </span>
@@ -1231,7 +1221,7 @@ function SortableCoreActivity({
         {showRoles && coreActivity.roles.length > 0 && (
           <div className="flex items-center gap-1 mt-1 flex-wrap">
             {coreActivity.roles.map((r) => (
-              <span key={r.id} className="inline-flex items-center gap-0.5 text-[9px] bg-purple-50 text-purple-700 px-1 py-0.5 rounded">
+              <span key={r.id} className="inline-flex items-center gap-0.5 text-[9px] bg-[#e8dff5] text-[#4a2d82] px-1 py-0.5 rounded">
                 <Shield className="h-2.5 w-2.5" />
                 {r.title.length > 12 ? r.title.slice(0, 12) + '...' : r.title}
               </span>
@@ -1461,7 +1451,7 @@ function HandoffBlock({
   return (
     <div className="flex items-center justify-center gap-2 py-2 px-4">
       <div className="flex-1 h-px bg-border" />
-      <div className="group flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-full text-amber-800">
+      <div className="group flex items-center gap-2 px-3 py-1.5 bg-[#fef3cd] border border-[#e8d5a0] rounded-full text-[#856404]">
         <ArrowRightLeft className="h-3.5 w-3.5 flex-shrink-0" />
         {editing ? (
           <Input
@@ -1492,7 +1482,7 @@ function HandoffBlock({
         <Button
           variant="ghost"
           size="sm"
-          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-amber-600 hover:text-red-600"
+          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-[#856404] hover:text-[#891a1a]"
           onClick={onDelete}
         >
           <X className="h-3 w-3" />
@@ -1506,23 +1496,23 @@ function HandoffBlock({
 // Helper: status border color for the left stripe
 function getStatusBorderColor(status: string): string {
   switch (status) {
-    case 'Draft': return 'border-l-4 border-l-gray-400';
-    case 'In Review': return 'border-l-4 border-l-yellow-400';
-    case 'Active': return 'border-l-4 border-l-green-500';
-    case 'Needs Update': return 'border-l-4 border-l-orange-400';
-    case 'Archived': return 'border-l-4 border-l-red-400';
-    default: return 'border-l-4 border-l-gray-300';
+    case 'Draft': return 'border-l-4 border-l-[#9e9c9a]';
+    case 'In Review': return 'border-l-4 border-l-[#856404]';
+    case 'Active': return 'border-l-4 border-l-[#155724]';
+    case 'Needs Update': return 'border-l-4 border-l-[#984c0c]';
+    case 'Archived': return 'border-l-4 border-l-[#891a1a]';
+    default: return 'border-l-4 border-l-[#c5c3c1]';
   }
 }
 
 // Helper: status dot color
 function getStatusDotColor(status: string): string {
   switch (status) {
-    case 'Draft': return 'bg-gray-400';
-    case 'In Review': return 'bg-yellow-400';
-    case 'Active': return 'bg-green-500';
-    case 'Needs Update': return 'bg-orange-400';
-    case 'Archived': return 'bg-red-400';
-    default: return 'bg-gray-300';
+    case 'Draft': return 'bg-[#9e9c9a]';
+    case 'In Review': return 'bg-[#856404]';
+    case 'Active': return 'bg-[#155724]';
+    case 'Needs Update': return 'bg-[#984c0c]';
+    case 'Archived': return 'bg-[#891a1a]';
+    default: return 'bg-[#c5c3c1]';
   }
 }

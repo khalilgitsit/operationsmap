@@ -458,14 +458,27 @@ export function getRecordTitle(record: Record<string, unknown>, config: ObjectCo
 }
 
 export const STATUS_COLORS: Record<string, string> = {
-  Draft: 'bg-gray-100 text-gray-700',
-  'In Review': 'bg-yellow-100 text-yellow-700',
-  Active: 'bg-green-100 text-green-700',
-  Published: 'bg-green-100 text-green-700',
-  'Needs Update': 'bg-orange-100 text-orange-700',
-  Archived: 'bg-red-100 text-red-700',
-  Inactive: 'bg-gray-100 text-gray-700',
-  Open: 'bg-blue-100 text-blue-700',
-  'Under Evaluation': 'bg-yellow-100 text-yellow-700',
-  Deprecated: 'bg-red-100 text-red-700',
+  Draft: 'bg-[#ecebea] text-[#4e4c4a]',
+  'In Review': 'bg-[#fef3cd] text-[#856404]',
+  Active: 'bg-[#d4edda] text-[#155724]',
+  Published: 'bg-[#d4edda] text-[#155724]',
+  'Needs Update': 'bg-[#ffe5d0] text-[#984c0c]',
+  Archived: 'bg-[#f5d5d5] text-[#891a1a]',
+  Inactive: 'bg-[#ecebea] text-[#4e4c4a]',
+  Open: 'bg-[#d6e5f5] text-[#0b2d5d]',
+  'Under Evaluation': 'bg-[#fef3cd] text-[#856404]',
+  Deprecated: 'bg-[#f5d5d5] text-[#891a1a]',
 };
+
+export const TYPE_COLORS: Record<string, string> = {
+  function: 'bg-[#d6e5f5] text-[#0b2d5d]',
+  subfunction: 'bg-[#dce9f5] text-[#1a509b]',
+  process: 'bg-[#e8dff5] text-[#4a2d82]',
+  core_activity: 'bg-[#fef3cd] text-[#856404]',
+  person: 'bg-[#d4edda] text-[#155724]',
+  role: 'bg-[#d4ede5] text-[#0d5e4b]',
+  software: 'bg-[#f5d5e5] text-[#891a5c]',
+  workflow: 'bg-[#ddd5f5] text-[#362982]',
+};
+
+export const DEFAULT_BADGE_COLORS = 'bg-[#ecebea] text-[#4e4c4a]';

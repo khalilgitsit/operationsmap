@@ -19,7 +19,7 @@ export function PageHeader({ title, backHref, backLabel }: PageHeaderProps) {
           {backLabel ?? 'Back'}
         </Link>
       )}
-      <h1 className="text-2xl font-bold">{title}</h1>
+      <h1 className="text-xl font-medium tracking-tight">{title}</h1>
     </div>
   );
 }
