@@ -15,6 +15,13 @@ export class AuthError extends Error {
   }
 }
 
+export class NoOrganizationError extends AuthError {
+  constructor() {
+    super('No organization found');
+    this.name = 'NoOrganizationError';
+  }
+}
+
 /**
  * Get the authenticated user's context.
  * Respects the active workspace cookie if set, falling back to the first org.
@@ -66,7 +73,7 @@ export async function getAuthContext(): Promise<AuthContext> {
     .single();
 
   if (!userOrg) {
-    throw new AuthError('No organization found');
+    throw new NoOrganizationError();
   }
 
   return {

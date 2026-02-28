@@ -226,26 +226,48 @@ export async function inviteUser(email: string): Promise<ActionResult<null>> {
     return { success: false, error: 'Only admins can invite users' };
   }
 
-  // Create user via admin API with auto-confirm
-  const { data: { user }, error: createError } = await serviceClient.auth.admin.createUser({
-    email,
-    email_confirm: true,
-    password: crypto.randomUUID(), // Temporary password; user will reset
-  });
+  // Check if user already exists in the system
+  const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
+  const existingUser = existingUsers?.users?.find((u) => u.email === email);
 
-  if (createError) {
-    if (createError.message.includes('already registered')) {
-      return { success: false, error: 'User with this email already exists' };
+  let userId: string;
+
+  if (existingUser) {
+    // User already exists — check if they're already in this org
+    const { data: existingLink } = await serviceClient
+      .from('user_organizations')
+      .select('organization_id')
+      .eq('user_id', existingUser.id)
+      .eq('organization_id', auth.organizationId)
+      .single();
+
+    if (existingLink) {
+      return { success: false, error: 'User is already a member of this workspace' };
     }
-    return { success: false, error: createError.message };
+
+    userId = existingUser.id;
+  } else {
+    // Invite new user via email — sends a magic link they can use to set their password
+    const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/auth/callback?next=/`,
+    });
+
+    if (inviteError) {
+      if (inviteError.message.includes('already registered')) {
+        return { success: false, error: 'User with this email already exists' };
+      }
+      return { success: false, error: inviteError.message };
+    }
+    if (!inviteData.user) return { success: false, error: 'Failed to invite user' };
+
+    userId = inviteData.user.id;
   }
-  if (!user) return { success: false, error: 'Failed to create user' };
 
   // Link to org
   const { error: linkError } = await serviceClient
     .from('user_organizations')
     .insert({
-      user_id: user.id,
+      user_id: userId,
       organization_id: auth.organizationId,
       role: 'member',
     } as never);

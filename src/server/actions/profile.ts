@@ -28,7 +28,7 @@ export async function getProfile(): Promise<ActionResult<UserProfile>> {
   // Get or create profile
   const supabase = await createClient();
   let { data: profile } = await supabase
-    .from('profiles' as never)
+    .from('profiles')
     .select('*')
     .eq('id', auth.userId)
     .single();
@@ -36,16 +36,16 @@ export async function getProfile(): Promise<ActionResult<UserProfile>> {
   if (!profile) {
     // Auto-create profile on first access
     const { data: newProfile, error: insertError } = await supabase
-      .from('profiles' as never)
-      .insert({ id: auth.userId } as never)
+      .from('profiles')
+      .insert({ id: auth.userId })
       .select()
       .single();
 
     if (insertError) {
       // May fail due to RLS timing - use service client as fallback
       const { data: svcProfile } = await serviceClient
-        .from('profiles' as never)
-        .insert({ id: auth.userId } as never)
+        .from('profiles')
+        .insert({ id: auth.userId })
         .select()
         .single();
       profile = svcProfile;
@@ -54,16 +54,14 @@ export async function getProfile(): Promise<ActionResult<UserProfile>> {
     }
   }
 
-  const p = profile as Record<string, unknown> | null;
-
   return {
     success: true,
     data: {
       id: auth.userId,
-      display_name: (p?.display_name as string) ?? null,
-      timezone: (p?.timezone as string) ?? 'UTC',
-      location: (p?.location as string) ?? null,
-      avatar_url: (p?.avatar_url as string) ?? null,
+      display_name: profile?.display_name ?? null,
+      timezone: profile?.timezone ?? 'UTC',
+      location: profile?.location ?? null,
+      avatar_url: profile?.avatar_url ?? null,
       email: user.email ?? '',
     },
   };
@@ -77,8 +75,8 @@ export async function updateProfile(
   const supabase = await createClient();
 
   const { error } = await supabase
-    .from('profiles' as never)
-    .update(updates as never)
+    .from('profiles')
+    .update(updates)
     .eq('id', auth.userId);
 
   if (error) return { success: false, error: error.message };
@@ -167,8 +165,10 @@ export async function listWorkspaces(): Promise<ActionResult<Workspace[]>> {
 }
 
 export async function createWorkspace(name: string): Promise<ActionResult<{ id: string }>> {
-  const auth = await getAuthContextSafe();
-  if (!auth) return { success: false, error: 'Not authenticated' };
+  // Use createClient directly to get user ID - this works even for users with no org yet
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Not authenticated' };
 
   const serviceClient = await createServiceClient();
 
@@ -186,7 +186,7 @@ export async function createWorkspace(name: string): Promise<ActionResult<{ id: 
   const { error: linkError } = await serviceClient
     .from('user_organizations')
     .insert({
-      user_id: auth.userId,
+      user_id: user.id,
       organization_id: orgId,
       role: 'admin',
     } as never);

@@ -46,6 +46,8 @@ export function TopBar({ userEmail, displayName, avatarUrl, activeOrgId }: TopBa
     const result = await listWorkspaces();
     if (result.success) {
       setWorkspaces(result.data);
+    } else {
+      console.error('[top-bar] Failed to load workspaces:', result.error);
     }
   }, []);
 
@@ -137,32 +139,28 @@ export function TopBar({ userEmail, displayName, avatarUrl, activeOrgId }: TopBa
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
 
-              {/* Workspace section */}
-              {workspaces.length > 0 && (
-                <>
-                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                    Workspaces
-                  </DropdownMenuLabel>
-                  {workspaces.map((ws) => (
-                    <DropdownMenuItem
-                      key={ws.id}
-                      onClick={() => handleSwitchWorkspace(ws.id)}
-                      className="flex items-center gap-2"
-                    >
-                      <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="flex-1 truncate">{ws.name}</span>
-                      {ws.id === activeOrgId && (
-                        <Check className="h-4 w-4 shrink-0 text-primary" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuItem onClick={() => setShowCreateWorkspace(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create new workspace
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
+              {/* Workspace section - always show so users can create/switch */}
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                Workspaces
+              </DropdownMenuLabel>
+              {workspaces.map((ws) => (
+                <DropdownMenuItem
+                  key={ws.id}
+                  onClick={() => handleSwitchWorkspace(ws.id)}
+                  className="flex items-center gap-2"
+                >
+                  <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="flex-1 truncate">{ws.name}</span>
+                  {ws.id === activeOrgId && (
+                    <Check className="h-4 w-4 shrink-0 text-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem onClick={() => setShowCreateWorkspace(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create new workspace
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
 
               {/* Profile & Security */}
               <DropdownMenuItem asChild>
