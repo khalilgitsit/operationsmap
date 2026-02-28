@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition, useRef } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useRefetchOnPanelClose } from '@/hooks/useRefetchOnPanelClose';
+import { usePersistentToggle } from '@/hooks/usePersistentToggle';
 import {
   DndContext,
   closestCenter,
@@ -38,6 +40,9 @@ import {
 import { StatusBadge } from '@/components/status-badge';
 import { PreviewPanel } from '@/components/preview-panel';
 import { QuickCreatePanel } from '@/components/quick-create-panel';
+import { ToggleButton } from '@/components/toggle-button';
+import { LoadingSpinner } from '@/components/loading-spinner';
+import { PersonAvatars, SoftwareTags, RoleTags } from '@/components/association-tags';
 import { ReferenceCombobox } from '@/components/reference-combobox';
 import { PageHeader } from '@/components/page-header';
 import { getObjectConfig } from '@/lib/object-config';
@@ -71,18 +76,9 @@ export default function FunctionChartDetailPage() {
   const [loading, setLoading] = useState(true);
 
   // Toggles
-  const [showPeople, setShowPeople] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('fc-show-people') === 'true';
-    return false;
-  });
-  const [showSoftware, setShowSoftware] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('fc-show-software') === 'true';
-    return false;
-  });
-  const [showRoles, setShowRoles] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('fc-show-roles') === 'true';
-    return false;
-  });
+  const [showPeople, setShowPeople] = usePersistentToggle('fc-show-people');
+  const [showSoftware, setShowSoftware] = usePersistentToggle('fc-show-software');
+  const [showRoles, setShowRoles] = usePersistentToggle('fc-show-roles');
 
   // Filters
   const [filterPerson, setFilterPerson] = useState<string | null>(null);
@@ -118,13 +114,7 @@ export default function FunctionChartDetailPage() {
   }, [fetchData]);
 
   // Re-fetch data when preview panel closes (picks up status changes etc.)
-  const prevPreviewRef = useRef(previewState);
-  useEffect(() => {
-    if (prevPreviewRef.current !== null && previewState === null) {
-      fetchData();
-    }
-    prevPreviewRef.current = previewState;
-  }, [previewState, fetchData]);
+  useRefetchOnPanelClose(previewState, fetchData);
 
   // Filter core activities
   const getFilteredActivities = (activities: FunctionDetailCoreActivity[]) => {
@@ -253,7 +243,7 @@ export default function FunctionChartDetailPage() {
       <div>
         <PageHeader title="Function Detail" backHref="/function-chart" backLabel="Function Chart" />
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <LoadingSpinner />
         </div>
       </div>
     );
@@ -401,54 +391,9 @@ export default function FunctionChartDetailPage() {
                         </Tooltip>
                         <StatusBadge status={col.status} />
 
-                        {/* Subfunction-level association tags */}
-                        {showPeople && col.people.length > 0 && (
-                          <div className="flex items-center gap-1 mt-2 flex-wrap">
-                            {col.people.slice(0, 5).map((p) => (
-                              <span
-                                key={p.id}
-                                className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[9px] font-medium"
-                                title={`${p.first_name} ${p.last_name}`}
-                              >
-                                {p.first_name[0]}{p.last_name[0]}
-                              </span>
-                            ))}
-                            {col.people.length > 5 && (
-                              <span className="text-[9px] text-muted-foreground">
-                                +{col.people.length - 5}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {showSoftware && col.software.length > 0 && (
-                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                            {col.software.map((s) => (
-                              <span
-                                key={s.id}
-                                className="inline-flex items-center gap-0.5 text-[9px] bg-[#d6e5f5] text-[#0b2d5d] px-1 py-0.5 rounded"
-                                title={s.title}
-                              >
-                                <Monitor className="h-2.5 w-2.5" />
-                                {s.title.length > 10 ? s.title.slice(0, 10) + '...' : s.title}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {showRoles && col.roles.length > 0 && (
-                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                            {col.roles.map((r) => (
-                              <span
-                                key={r.id}
-                                className="inline-flex items-center gap-0.5 text-[9px] bg-[#e8dff5] text-[#4a2d82] px-1 py-0.5 rounded"
-                              >
-                                <Shield className="h-2.5 w-2.5" />
-                                {r.title.length > 12 ? r.title.slice(0, 12) + '...' : r.title}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        {showPeople && <PersonAvatars people={col.people} size="sm" className="mt-2" />}
+                        {showSoftware && <SoftwareTags software={col.software} size="sm" className="mt-1.5" />}
+                        {showRoles && <RoleTags roles={col.roles} size="sm" className="mt-1.5" />}
                       </div>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -566,30 +511,6 @@ export default function FunctionChartDetailPage() {
   );
 }
 
-function ToggleButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <Button
-      variant={active ? 'default' : 'outline'}
-      size="sm"
-      className="h-8 gap-1.5"
-      onClick={onClick}
-    >
-      {icon}
-      <span className="text-xs">{label}</span>
-    </Button>
-  );
-}
-
 function SortableCoreActivityCard({
   coreActivity,
   showPeople,
@@ -652,56 +573,9 @@ function SortableCoreActivityCard({
                 <StatusBadge status={coreActivity.status} />
               </div>
 
-              {/* People avatars */}
-              {showPeople && coreActivity.people.length > 0 && (
-                <div className="flex items-center gap-1 mt-2 flex-wrap">
-                  {coreActivity.people.slice(0, 5).map((p) => (
-                    <span
-                      key={p.id}
-                      className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-[10px] font-medium"
-                      title={`${p.first_name} ${p.last_name}`}
-                    >
-                      {p.first_name[0]}{p.last_name[0]}
-                    </span>
-                  ))}
-                  {coreActivity.people.length > 5 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      +{coreActivity.people.length - 5}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Software icons */}
-              {showSoftware && coreActivity.software.length > 0 && (
-                <div className="flex items-center gap-1 mt-2 flex-wrap">
-                  {coreActivity.software.map((s) => (
-                    <span
-                      key={s.id}
-                      className="inline-flex items-center gap-1 text-[10px] bg-[#d6e5f5] text-[#0b2d5d] px-1.5 py-0.5 rounded"
-                      title={s.title}
-                    >
-                      <Monitor className="h-3 w-3" />
-                      {s.title.length > 12 ? s.title.slice(0, 12) + '...' : s.title}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Role tags */}
-              {showRoles && coreActivity.roles.length > 0 && (
-                <div className="flex items-center gap-1 mt-2 flex-wrap">
-                  {coreActivity.roles.map((r) => (
-                    <span
-                      key={r.id}
-                      className="inline-flex items-center gap-1 text-[10px] bg-[#e8dff5] text-[#4a2d82] px-1.5 py-0.5 rounded"
-                    >
-                      <Shield className="h-3 w-3" />
-                      {r.title.length > 15 ? r.title.slice(0, 15) + '...' : r.title}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {showPeople && <PersonAvatars people={coreActivity.people} className="mt-2" />}
+              {showSoftware && <SoftwareTags software={coreActivity.software} className="mt-2" />}
+              {showRoles && <RoleTags roles={coreActivity.roles} className="mt-2" />}
             </div>
           </div>
         </div>

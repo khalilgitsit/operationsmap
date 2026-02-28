@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition, useRef } from 'react';
+import { useState, useEffect, useCallback, useTransition, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useRefetchOnPanelClose } from '@/hooks/useRefetchOnPanelClose';
+import { usePersistentToggle } from '@/hooks/usePersistentToggle';
 import {
   DndContext,
   closestCenter,
@@ -39,6 +41,9 @@ import {
 import { StatusBadge } from '@/components/status-badge';
 import { PreviewPanel } from '@/components/preview-panel';
 import { QuickCreatePanel } from '@/components/quick-create-panel';
+import { ToggleButton } from '@/components/toggle-button';
+import { LoadingSpinner } from '@/components/loading-spinner';
+import { PersonAvatars, SoftwareTags, RoleTags } from '@/components/association-tags';
 import { ReferenceCombobox } from '@/components/reference-combobox';
 import { PageHeader } from '@/components/page-header';
 import { getObjectConfig } from '@/lib/object-config';
@@ -73,18 +78,9 @@ export default function FunctionChartPage() {
   const [sortMode, setSortMode] = useState<SortMode>('custom');
 
   // Toggles
-  const [showPeople, setShowPeople] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('fc-show-people') === 'true';
-    return false;
-  });
-  const [showSoftware, setShowSoftware] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('fc-show-software') === 'true';
-    return false;
-  });
-  const [showRoles, setShowRoles] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('fc-show-roles') === 'true';
-    return false;
-  });
+  const [showPeople, setShowPeople] = usePersistentToggle('fc-show-people');
+  const [showSoftware, setShowSoftware] = usePersistentToggle('fc-show-software');
+  const [showRoles, setShowRoles] = usePersistentToggle('fc-show-roles');
 
   // Panels
   const [previewState, setPreviewState] = useState<{ type: string; id: string } | null>(null);
@@ -113,31 +109,13 @@ export default function FunctionChartPage() {
   }, [fetchData]);
 
   // Re-fetch chart data when preview panel closes (picks up status changes etc.)
-  const prevPreviewRef = useRef(previewState);
-  useEffect(() => {
-    // When previewState transitions from open (non-null) to closed (null), re-fetch
-    if (prevPreviewRef.current !== null && previewState === null) {
-      fetchData();
-    }
-    prevPreviewRef.current = previewState;
-  }, [previewState, fetchData]);
+  useRefetchOnPanelClose(previewState, fetchData);
 
-  // Persist toggle state
-  useEffect(() => {
-    localStorage.setItem('fc-show-people', String(showPeople));
-  }, [showPeople]);
-  useEffect(() => {
-    localStorage.setItem('fc-show-software', String(showSoftware));
-  }, [showSoftware]);
-  useEffect(() => {
-    localStorage.setItem('fc-show-roles', String(showRoles));
-  }, [showRoles]);
-
-  const sortedFunctions = [...functions].sort((a, b) => {
+  const sortedFunctions = useMemo(() => [...functions].sort((a, b) => {
     if (sortMode === 'az') return a.title.localeCompare(b.title);
     if (sortMode === 'za') return b.title.localeCompare(a.title);
     return 0; // custom = insertion order
-  });
+  }), [functions, sortMode]);
 
   const handleSubfunctionDragEnd = (functionId: string) => (event: DragEndEvent) => {
     const { active, over } = event;
@@ -173,7 +151,7 @@ export default function FunctionChartPage() {
       <div>
         <PageHeader title="Function Chart" />
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <LoadingSpinner />
         </div>
       </div>
     );
@@ -432,30 +410,6 @@ export default function FunctionChartPage() {
   );
 }
 
-function ToggleButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <Button
-      variant={active ? 'default' : 'outline'}
-      size="sm"
-      className="h-8 gap-1.5"
-      onClick={onClick}
-    >
-      {icon}
-      <span className="text-xs">{label}</span>
-    </Button>
-  );
-}
-
 function SortableSubfunctionCard({
   subfunction,
   showPeople,
@@ -516,56 +470,9 @@ function SortableSubfunctionCard({
                 <StatusBadge status={subfunction.status} />
               </div>
 
-              {/* People avatars */}
-              {showPeople && subfunction.people.length > 0 && (
-                <div className="flex items-center gap-1 mt-2 flex-wrap">
-                  {subfunction.people.slice(0, 5).map((p) => (
-                    <span
-                      key={p.id}
-                      className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary/10 text-primary text-[10px] font-medium"
-                      title={`${p.first_name} ${p.last_name}`}
-                    >
-                      {p.first_name[0]}{p.last_name[0]}
-                    </span>
-                  ))}
-                  {subfunction.people.length > 5 && (
-                    <span className="text-[10px] text-muted-foreground">
-                      +{subfunction.people.length - 5}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Software icons */}
-              {showSoftware && subfunction.software.length > 0 && (
-                <div className="flex items-center gap-1 mt-2 flex-wrap">
-                  {subfunction.software.map((s) => (
-                    <span
-                      key={s.id}
-                      className="inline-flex items-center gap-1 text-[10px] bg-[#d6e5f5] text-[#0b2d5d] px-1.5 py-0.5 rounded"
-                      title={s.title}
-                    >
-                      <Monitor className="h-3 w-3" />
-                      {s.title.length > 12 ? s.title.slice(0, 12) + '...' : s.title}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Role tags */}
-              {showRoles && subfunction.roles.length > 0 && (
-                <div className="flex items-center gap-1 mt-2 flex-wrap">
-                  {subfunction.roles.map((r) => (
-                    <span
-                      key={r.id}
-                      className="inline-flex items-center gap-1 text-[10px] bg-[#e8dff5] text-[#4a2d82] px-1.5 py-0.5 rounded"
-                    >
-                      <Shield className="h-3 w-3" />
-                      {r.title.length > 15 ? r.title.slice(0, 15) + '...' : r.title}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {showPeople && <PersonAvatars people={subfunction.people} className="mt-2" />}
+              {showSoftware && <SoftwareTags software={subfunction.software} className="mt-2" />}
+              {showRoles && <RoleTags roles={subfunction.roles} className="mt-2" />}
             </div>
 
             {/* Inline tagging button */}

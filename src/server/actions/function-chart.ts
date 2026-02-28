@@ -37,6 +37,28 @@ export interface FunctionDetailCoreActivity {
   software: { id: string; title: string }[];
 }
 
+/** Groups junction rows by source key, resolving target entities from a lookup map. */
+function buildAssociationMap<
+  TJunction extends Record<string, string>,
+  TEntity,
+>(
+  junctionRows: TJunction[],
+  sourceKey: keyof TJunction,
+  targetKey: keyof TJunction,
+  entityMap: Map<string, TEntity>,
+): Map<string, TEntity[]> {
+  const result = new Map<string, TEntity[]>();
+  for (const row of junctionRows) {
+    const entity = entityMap.get(row[targetKey]);
+    if (entity) {
+      const list = result.get(row[sourceKey]) || [];
+      list.push(entity);
+      result.set(row[sourceKey], list);
+    }
+  }
+  return result;
+}
+
 export async function getFunctionChartData(): Promise<
   ActionResult<{ orgName: string; functions: FunctionChartFunction[] }>
 > {
@@ -115,36 +137,18 @@ export async function getFunctionChartData(): Promise<
   const softwareMap = new Map((softwareDataRes.data || []).map((s) => [s.id, s]));
 
   // Build subfunction association maps
-  const subPeopleMap = new Map<string, { id: string; first_name: string; last_name: string }[]>();
-  const subRolesMap = new Map<string, { id: string; title: string }[]>();
-  const subSoftwareMap = new Map<string, { id: string; title: string }[]>();
-
-  for (const jp of (peopleRes.data || []) as { subfunction_id: string; person_id: string }[]) {
-    const person = personsMap.get(jp.person_id);
-    if (person) {
-      const list = subPeopleMap.get(jp.subfunction_id) || [];
-      list.push(person as { id: string; first_name: string; last_name: string });
-      subPeopleMap.set(jp.subfunction_id, list);
-    }
-  }
-
-  for (const jr of (rolesRes.data || []) as { subfunction_id: string; role_id: string }[]) {
-    const role = rolesMap.get(jr.role_id);
-    if (role) {
-      const list = subRolesMap.get(jr.subfunction_id) || [];
-      list.push(role as { id: string; title: string });
-      subRolesMap.set(jr.subfunction_id, list);
-    }
-  }
-
-  for (const js of (softwareRes.data || []) as { subfunction_id: string; software_id: string }[]) {
-    const sw = softwareMap.get(js.software_id);
-    if (sw) {
-      const list = subSoftwareMap.get(js.subfunction_id) || [];
-      list.push(sw as { id: string; title: string });
-      subSoftwareMap.set(js.subfunction_id, list);
-    }
-  }
+  const subPeopleMap = buildAssociationMap(
+    (peopleRes.data || []) as { subfunction_id: string; person_id: string }[],
+    'subfunction_id', 'person_id', personsMap,
+  );
+  const subRolesMap = buildAssociationMap(
+    (rolesRes.data || []) as { subfunction_id: string; role_id: string }[],
+    'subfunction_id', 'role_id', rolesMap,
+  );
+  const subSoftwareMap = buildAssociationMap(
+    (softwareRes.data || []) as { subfunction_id: string; software_id: string }[],
+    'subfunction_id', 'software_id', softwareMap,
+  );
 
   // Assemble result
   const chartFunctions: FunctionChartFunction[] = functions.map((fn) => ({
@@ -276,68 +280,32 @@ export async function getFunctionDetailData(
   const softwareMap = new Map((softwareDataRes.data || []).map((s) => [s.id, s]));
 
   // Build subfunction association maps
-  const sfPeopleMap = new Map<string, { id: string; first_name: string; last_name: string }[]>();
-  const sfRolesMap = new Map<string, { id: string; title: string }[]>();
-  const sfSoftwareMap = new Map<string, { id: string; title: string }[]>();
-
-  for (const jp of (subPeopleRes.data || []) as { subfunction_id: string; person_id: string }[]) {
-    const person = personsMap.get(jp.person_id);
-    if (person) {
-      const list = sfPeopleMap.get(jp.subfunction_id) || [];
-      list.push(person as { id: string; first_name: string; last_name: string });
-      sfPeopleMap.set(jp.subfunction_id, list);
-    }
-  }
-
-  for (const jr of (subRolesRes.data || []) as { subfunction_id: string; role_id: string }[]) {
-    const role = rolesMap.get(jr.role_id);
-    if (role) {
-      const list = sfRolesMap.get(jr.subfunction_id) || [];
-      list.push(role as { id: string; title: string });
-      sfRolesMap.set(jr.subfunction_id, list);
-    }
-  }
-
-  for (const js of (subSoftwareRes.data || []) as { subfunction_id: string; software_id: string }[]) {
-    const sw = softwareMap.get(js.software_id);
-    if (sw) {
-      const list = sfSoftwareMap.get(js.subfunction_id) || [];
-      list.push(sw as { id: string; title: string });
-      sfSoftwareMap.set(js.subfunction_id, list);
-    }
-  }
+  const sfPeopleMap = buildAssociationMap(
+    (subPeopleRes.data || []) as { subfunction_id: string; person_id: string }[],
+    'subfunction_id', 'person_id', personsMap,
+  );
+  const sfRolesMap = buildAssociationMap(
+    (subRolesRes.data || []) as { subfunction_id: string; role_id: string }[],
+    'subfunction_id', 'role_id', rolesMap,
+  );
+  const sfSoftwareMap = buildAssociationMap(
+    (subSoftwareRes.data || []) as { subfunction_id: string; software_id: string }[],
+    'subfunction_id', 'software_id', softwareMap,
+  );
 
   // Build core activity association maps
-  const caPeopleMap = new Map<string, { id: string; first_name: string; last_name: string }[]>();
-  const caRolesMap = new Map<string, { id: string; title: string }[]>();
-  const caSoftwareMap = new Map<string, { id: string; title: string }[]>();
-
-  for (const jp of (caPeopleRes.data || []) as { core_activity_id: string; person_id: string }[]) {
-    const person = personsMap.get(jp.person_id);
-    if (person) {
-      const list = caPeopleMap.get(jp.core_activity_id) || [];
-      list.push(person as { id: string; first_name: string; last_name: string });
-      caPeopleMap.set(jp.core_activity_id, list);
-    }
-  }
-
-  for (const jr of (caRolesRes.data || []) as { core_activity_id: string; role_id: string }[]) {
-    const role = rolesMap.get(jr.role_id);
-    if (role) {
-      const list = caRolesMap.get(jr.core_activity_id) || [];
-      list.push(role as { id: string; title: string });
-      caRolesMap.set(jr.core_activity_id, list);
-    }
-  }
-
-  for (const js of (caSoftwareRes.data || []) as { core_activity_id: string; software_id: string }[]) {
-    const sw = softwareMap.get(js.software_id);
-    if (sw) {
-      const list = caSoftwareMap.get(js.core_activity_id) || [];
-      list.push(sw as { id: string; title: string });
-      caSoftwareMap.set(js.core_activity_id, list);
-    }
-  }
+  const caPeopleMap = buildAssociationMap(
+    (caPeopleRes.data || []) as { core_activity_id: string; person_id: string }[],
+    'core_activity_id', 'person_id', personsMap,
+  );
+  const caRolesMap = buildAssociationMap(
+    (caRolesRes.data || []) as { core_activity_id: string; role_id: string }[],
+    'core_activity_id', 'role_id', rolesMap,
+  );
+  const caSoftwareMap = buildAssociationMap(
+    (caSoftwareRes.data || []) as { core_activity_id: string; software_id: string }[],
+    'core_activity_id', 'software_id', softwareMap,
+  );
 
   return {
     success: true,
