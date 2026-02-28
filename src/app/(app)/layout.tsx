@@ -19,12 +19,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Fetch profile data for avatar and display name
   const serviceClient = await createServiceClient();
   const { data: profile } = await serviceClient
-    .from('profiles' as never)
+    .from('profiles')
     .select('display_name, avatar_url')
     .eq('id', user.id)
     .single();
-
-  const p = profile as { display_name: string | null; avatar_url: string | null } | null;
 
   // Get active org ID
   const cookieStore = await cookies();
@@ -42,13 +40,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     activeOrgId = (userOrg as { organization_id: string } | null)?.organization_id;
   }
 
+  // If user has no organization at all, redirect to setup
+  if (!activeOrgId) {
+    redirect('/setup');
+  }
+
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex h-screen flex-col">
         <TopBar
           userEmail={user.email ?? ''}
-          displayName={p?.display_name}
-          avatarUrl={p?.avatar_url}
+          displayName={profile?.display_name}
+          avatarUrl={profile?.avatar_url}
           activeOrgId={activeOrgId}
         />
         <div className="flex flex-1 overflow-hidden">
