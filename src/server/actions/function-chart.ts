@@ -38,11 +38,19 @@ export interface FunctionDetailCoreActivity {
 }
 
 export async function getFunctionChartData(): Promise<
-  ActionResult<FunctionChartFunction[]>
+  ActionResult<{ orgName: string; functions: FunctionChartFunction[] }>
 > {
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
+
+  // Fetch organization name
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('name')
+    .eq('id', auth.organizationId)
+    .single();
+  const orgName = org?.name || '';
 
   // Fetch all functions
   const { data: functions, error: funcError } = await supabase
@@ -51,7 +59,7 @@ export async function getFunctionChartData(): Promise<
     .order('created_at', { ascending: true });
 
   if (funcError) return { success: false, error: funcError.message };
-  if (!functions?.length) return { success: true, data: [] };
+  if (!functions?.length) return { success: true, data: { orgName, functions: [] } };
 
   // Fetch all subfunctions
   const { data: subfunctions, error: subError } = await supabase
@@ -139,7 +147,7 @@ export async function getFunctionChartData(): Promise<
   }
 
   // Assemble result
-  const result: FunctionChartFunction[] = functions.map((fn) => ({
+  const chartFunctions: FunctionChartFunction[] = functions.map((fn) => ({
     id: fn.id,
     title: fn.title,
     description: fn.description,
@@ -160,7 +168,7 @@ export async function getFunctionChartData(): Promise<
       })),
   }));
 
-  return { success: true, data: result };
+  return { success: true, data: { orgName, functions: chartFunctions } };
 }
 
 export async function getFunctionDetailData(
@@ -174,6 +182,9 @@ export async function getFunctionDetailData(
       description: string | null;
       status: string;
       position: number;
+      people: { id: string; first_name: string; last_name: string }[];
+      roles: { id: string; title: string }[];
+      software: { id: string; title: string }[];
       coreActivities: FunctionDetailCoreActivity[];
     }[];
   }>
@@ -202,18 +213,32 @@ export async function getFunctionDetailData(
 
   // Fetch core activities for all subfunctions
   const subIds = (subfunctions || []).map((s) => s.id);
-  const { data: coreActivities, error: caError } = subIds.length
-    ? await supabase
-        .from('core_activities')
-        .select('id, title, description, status, subfunction_id, position')
-        .in('subfunction_id', subIds)
-        .order('position', { ascending: true })
-    : { data: [] as { id: string; title: string; description: string | null; status: string; subfunction_id: string | null; position: number }[], error: null };
 
-  if (caError) return { success: false, error: caError.message };
+  // Fetch subfunction-level associations in parallel with core activities
+  const [caResult, subPeopleRes, subRolesRes, subSoftwareRes] = await Promise.all([
+    subIds.length
+      ? supabase
+          .from('core_activities')
+          .select('id, title, description, status, subfunction_id, position')
+          .in('subfunction_id', subIds)
+          .order('position', { ascending: true })
+      : Promise.resolve({ data: [] as { id: string; title: string; description: string | null; status: string; subfunction_id: string | null; position: number }[], error: null }),
+    subIds.length
+      ? supabase.from('subfunction_people').select('subfunction_id, person_id').in('subfunction_id', subIds)
+      : Promise.resolve({ data: [] as { subfunction_id: string; person_id: string }[], error: null }),
+    subIds.length
+      ? supabase.from('subfunction_roles').select('subfunction_id, role_id').in('subfunction_id', subIds)
+      : Promise.resolve({ data: [] as { subfunction_id: string; role_id: string }[], error: null }),
+    subIds.length
+      ? supabase.from('subfunction_software').select('subfunction_id, software_id').in('subfunction_id', subIds)
+      : Promise.resolve({ data: [] as { subfunction_id: string; software_id: string }[], error: null }),
+  ]);
+
+  const coreActivities = caResult.data || [];
+  if (caResult.error) return { success: false, error: caResult.error.message };
 
   // Fetch associations for core activities
-  const caIds = (coreActivities || []).map((ca) => ca.id);
+  const caIds = coreActivities.map((ca) => ca.id);
 
   const [caPeopleRes, caRolesRes, caSoftwareRes] = await Promise.all([
     caIds.length
@@ -227,20 +252,62 @@ export async function getFunctionDetailData(
       : { data: [], error: null },
   ]);
 
-  const personIds = [...new Set((caPeopleRes.data || []).map((p) => (p as Record<string, string>).person_id))];
-  const roleIds = [...new Set((caRolesRes.data || []).map((r) => (r as Record<string, string>).role_id))];
-  const softwareIds = [...new Set((caSoftwareRes.data || []).map((s) => (s as Record<string, string>).software_id))];
+  // Collect all person/role/software IDs from both CA and subfunction associations
+  const subPersonIds = [...new Set((subPeopleRes.data || []).map((p) => (p as Record<string, string>).person_id))];
+  const subRoleIds = [...new Set((subRolesRes.data || []).map((r) => (r as Record<string, string>).role_id))];
+  const subSoftwareIds = [...new Set((subSoftwareRes.data || []).map((s) => (s as Record<string, string>).software_id))];
+
+  const caPersonIds = [...new Set((caPeopleRes.data || []).map((p) => (p as Record<string, string>).person_id))];
+  const caRoleIds = [...new Set((caRolesRes.data || []).map((r) => (r as Record<string, string>).role_id))];
+  const caSoftwareIds = [...new Set((caSoftwareRes.data || []).map((s) => (s as Record<string, string>).software_id))];
+
+  const allPersonIds = [...new Set([...subPersonIds, ...caPersonIds])];
+  const allRoleIds = [...new Set([...subRoleIds, ...caRoleIds])];
+  const allSoftwareIds = [...new Set([...subSoftwareIds, ...caSoftwareIds])];
 
   const [personsRes, rolesDataRes, softwareDataRes] = await Promise.all([
-    personIds.length ? supabase.from('persons').select('id, first_name, last_name').in('id', personIds) : { data: [], error: null },
-    roleIds.length ? supabase.from('roles').select('id, title').in('id', roleIds) : { data: [], error: null },
-    softwareIds.length ? supabase.from('software').select('id, title').in('id', softwareIds) : { data: [], error: null },
+    allPersonIds.length ? supabase.from('persons').select('id, first_name, last_name').in('id', allPersonIds) : { data: [], error: null },
+    allRoleIds.length ? supabase.from('roles').select('id, title').in('id', allRoleIds) : { data: [], error: null },
+    allSoftwareIds.length ? supabase.from('software').select('id, title').in('id', allSoftwareIds) : { data: [], error: null },
   ]);
 
   const personsMap = new Map((personsRes.data || []).map((p) => [p.id, p]));
   const rolesMap = new Map((rolesDataRes.data || []).map((r) => [r.id, r]));
   const softwareMap = new Map((softwareDataRes.data || []).map((s) => [s.id, s]));
 
+  // Build subfunction association maps
+  const sfPeopleMap = new Map<string, { id: string; first_name: string; last_name: string }[]>();
+  const sfRolesMap = new Map<string, { id: string; title: string }[]>();
+  const sfSoftwareMap = new Map<string, { id: string; title: string }[]>();
+
+  for (const jp of (subPeopleRes.data || []) as { subfunction_id: string; person_id: string }[]) {
+    const person = personsMap.get(jp.person_id);
+    if (person) {
+      const list = sfPeopleMap.get(jp.subfunction_id) || [];
+      list.push(person as { id: string; first_name: string; last_name: string });
+      sfPeopleMap.set(jp.subfunction_id, list);
+    }
+  }
+
+  for (const jr of (subRolesRes.data || []) as { subfunction_id: string; role_id: string }[]) {
+    const role = rolesMap.get(jr.role_id);
+    if (role) {
+      const list = sfRolesMap.get(jr.subfunction_id) || [];
+      list.push(role as { id: string; title: string });
+      sfRolesMap.set(jr.subfunction_id, list);
+    }
+  }
+
+  for (const js of (subSoftwareRes.data || []) as { subfunction_id: string; software_id: string }[]) {
+    const sw = softwareMap.get(js.software_id);
+    if (sw) {
+      const list = sfSoftwareMap.get(js.subfunction_id) || [];
+      list.push(sw as { id: string; title: string });
+      sfSoftwareMap.set(js.subfunction_id, list);
+    }
+  }
+
+  // Build core activity association maps
   const caPeopleMap = new Map<string, { id: string; first_name: string; last_name: string }[]>();
   const caRolesMap = new Map<string, { id: string; title: string }[]>();
   const caSoftwareMap = new Map<string, { id: string; title: string }[]>();
@@ -282,6 +349,9 @@ export async function getFunctionDetailData(
         description: sf.description,
         status: sf.status,
         position: sf.position,
+        people: sfPeopleMap.get(sf.id) || [],
+        roles: sfRolesMap.get(sf.id) || [],
+        software: sfSoftwareMap.get(sf.id) || [],
         coreActivities: (coreActivities || [])
           .filter((ca) => ca.subfunction_id === sf.id)
           .map((ca) => ({

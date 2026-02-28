@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition, useCallback } from 'react';
+import { useState, useEffect, useTransition, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -17,16 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Plus, X, ChevronLeft } from 'lucide-react';
 import {
   type ObjectConfig,
   type ColumnConfig,
+  type AssociationConfig,
   getRecordTitle,
   getObjectConfig,
   OBJECT_CONFIGS,
   isDocumentType,
 } from '@/lib/object-config';
 import { getRecord, updateRecord, getActivityLog, getAssociations, searchRecords } from '@/server/actions/generic';
+import { addAssociation, removeAssociation } from '@/server/actions/associations';
 import { DocumentView } from '@/components/document-view';
 
 interface PreviewPanelProps {
@@ -44,6 +46,8 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
   const [associations, setAssociations] = useState<Record<string, Record<string, unknown>[]>>({});
   const [loading, setLoading] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [addingAssociation, setAddingAssociation] = useState<string | null>(null);
   const [referenceLabels, setReferenceLabels] = useState<Record<string, { label: string; href: string }>>({});
   // Stack for navigating between records within the panel
   const [stack, setStack] = useState<{ objectType: string; recordId: string }[]>([]);
@@ -110,6 +114,13 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
     }
   }, [recordId, objectType]);
 
+  // Reset editing states when navigating
+  useEffect(() => {
+    setEditingTitle(false);
+    setEditingField(null);
+    setAddingAssociation(null);
+  }, [currentId]);
+
   const handleFieldSave = (field: string, value: unknown) => {
     if (!currentId || !currentType) return;
     startTransition(async () => {
@@ -121,8 +132,56 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
     });
   };
 
+  const handleTitleSave = (updates: Record<string, unknown>) => {
+    if (!currentId || !currentType) return;
+    startTransition(async () => {
+      const result = await updateRecord(currentType, currentId, updates);
+      if (result.success) {
+        setRecord(result.data);
+      }
+      setEditingTitle(false);
+    });
+  };
+
+  const handleAddAssociation = (assoc: AssociationConfig, targetId: string) => {
+    if (!currentId) return;
+    startTransition(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await addAssociation(assoc.junctionTable as any, currentId, targetId);
+      if (result.success) {
+        // Re-fetch associations to get the full record data
+        const assocResult = await getAssociations(currentType, currentId, assoc.junctionTable, assoc.targetType);
+        if (assocResult.success) {
+          setAssociations((prev) => ({ ...prev, [assoc.junctionTable]: assocResult.data }));
+        }
+      }
+      setAddingAssociation(null);
+    });
+  };
+
+  const handleRemoveAssociation = (assoc: AssociationConfig, targetId: string) => {
+    if (!currentId) return;
+    startTransition(async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await removeAssociation(assoc.junctionTable as any, currentId, targetId);
+      if (result.success) {
+        // Optimistically remove from local state
+        setAssociations((prev) => ({
+          ...prev,
+          [assoc.junctionTable]: (prev[assoc.junctionTable] || []).filter(
+            (item) => item.id !== targetId
+          ),
+        }));
+      }
+    });
+  };
+
   const navigateToRecord = (type: string, id: string) => {
     setStack((prev) => [...prev, { objectType: type, recordId: id }]);
+  };
+
+  const navigateBack = () => {
+    setStack((prev) => prev.slice(0, -1));
   };
 
   if (!config || !currentId) return null;
@@ -152,14 +211,43 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
     );
   }
 
+  // Check if this is a Person type with titleFields
+  const isPersonType = !!(config.titleFields && config.titleFields.length > 1);
+
   return (
     <Sheet open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setStack([]); setRecord(null); } }}>
       <SheetContent className="w-[400px] sm:w-[450px] flex flex-col p-0">
         <SheetHeader className="px-6 pt-6 pb-2">
+          {/* Back button for navigation stack */}
+          {stack.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-fit -ml-2 mb-1"
+              onClick={navigateBack}
+            >
+              <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+              Back
+            </Button>
+          )}
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-lg">
-              {record ? getRecordTitle(record, config) : 'Loading...'}
-            </SheetTitle>
+            {/* 5.1 — Editable title */}
+            {editingTitle && record ? (
+              <EditableTitle
+                config={config}
+                record={record}
+                isPersonType={isPersonType}
+                onSave={handleTitleSave}
+                onCancel={() => setEditingTitle(false)}
+              />
+            ) : (
+              <SheetTitle
+                className="text-lg hover:bg-muted/50 rounded px-1 -mx-1 cursor-pointer transition-colors"
+                onClick={() => record && setEditingTitle(true)}
+              >
+                {record ? getRecordTitle(record, config) : 'Loading...'}
+              </SheetTitle>
+            )}
             <SheetDescription className="sr-only">{config.label} details</SheetDescription>
           </div>
           <Button
@@ -216,10 +304,10 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
                                   {referenceLabels[col.key].label}
                                 </Link>
                               ) : (
-                                <span className="text-muted-foreground italic">Loading…</span>
+                                <span className="text-muted-foreground italic">Loading...</span>
                               )
                             ) : (
-                              (record[col.key] as string) || '—'
+                              (record[col.key] as string) || '\u2014'
                             )}
                           </span>
                         )}
@@ -236,23 +324,84 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
                 {config.associations.map((assoc) => {
                   const items = associations[assoc.junctionTable] || [];
                   const targetConfig = OBJECT_CONFIGS[assoc.targetType];
+                  const isRealJunction = !assoc.junctionTable.startsWith('_');
+                  const existingIds = items.map((item) => item.id as string);
                   return (
-                    <div key={assoc.junctionTable} className="space-y-1">
+                    <div key={assoc.junctionTable} className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">{assoc.label}</span>
-                        <span className="text-xs text-muted-foreground">{items.length}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">{items.length}</span>
+                          {/* 5.2 — Add association button (only for real junction tables) */}
+                          {isRealJunction && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() =>
+                                setAddingAssociation(
+                                  addingAssociation === assoc.junctionTable ? null : assoc.junctionTable
+                                )
+                              }
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
+                      {/* Inline ReferenceCombobox for adding */}
+                      {addingAssociation === assoc.junctionTable && (
+                        <div className="pb-1">
+                          <ReferenceCombobox
+                            referenceType={assoc.targetType}
+                            value={null}
+                            onChange={(id) => {
+                              if (id) handleAddAssociation(assoc, id);
+                            }}
+                            placeholder={`Add ${assoc.label.toLowerCase()}...`}
+                            className="h-8"
+                            excludeIds={existingIds}
+                          />
+                        </div>
+                      )}
                       {items.length > 0 ? (
                         <div className="space-y-1">
-                          {items.slice(0, 5).map((item) => (
-                            <button
-                              key={item.id as string}
-                              className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted transition-colors"
-                              onClick={() => navigateToRecord(assoc.targetType, item.id as string)}
-                            >
-                              {targetConfig ? getRecordTitle(item, targetConfig) : (item.title as string) || (item.first_name as string) || ''}
-                            </button>
-                          ))}
+                          {items.slice(0, 5).map((item) => {
+                            const itemTitle = targetConfig
+                              ? getRecordTitle(item, targetConfig)
+                              : (item.title as string) || (item.first_name as string) || '';
+                            const itemStatus = targetConfig?.statusField
+                              ? (item[targetConfig.statusField] as string)
+                              : null;
+                            return (
+                              /* 5.3 — Card-style association items */
+                              <div
+                                key={item.id as string}
+                                className="group/assoc-item flex items-center gap-1"
+                              >
+                                <button
+                                  className="flex-1 text-left text-sm bg-muted/30 rounded px-2 py-1.5 border hover:border-primary/30 transition-colors flex items-center justify-between gap-2"
+                                  onClick={() => navigateToRecord(assoc.targetType, item.id as string)}
+                                >
+                                  <span className="truncate">{itemTitle}</span>
+                                  {itemStatus && (
+                                    <StatusBadge status={itemStatus} />
+                                  )}
+                                </button>
+                                {/* 5.2 — Remove association button (only for real junction tables) */}
+                                {isRealJunction && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 opacity-0 group-hover/assoc-item:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                    onClick={() => handleRemoveAssociation(assoc, item.id as string)}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })}
                           {items.length > 5 && (
                             <p className="text-xs text-muted-foreground px-2">+{items.length - 5} more</p>
                           )}
@@ -287,7 +436,7 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
                           if (fn && fn !== '_deleted' && fn !== '_comment') {
                             return (
                               <p className="text-xs text-muted-foreground">
-                                {fn}: {formatActivityValue(activity.old_value)} → {formatActivityValue(activity.new_value)}
+                                {fn}: {formatActivityValue(activity.old_value)} &rarr; {formatActivityValue(activity.new_value)}
                               </p>
                             );
                           }
@@ -312,6 +461,94 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
         </ScrollArea>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/* 5.1 — Editable title component */
+function EditableTitle({
+  config,
+  record,
+  isPersonType,
+  onSave,
+  onCancel,
+}: {
+  config: ObjectConfig;
+  record: Record<string, unknown>;
+  isPersonType: boolean;
+  onSave: (updates: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const firstInputRef = useRef<HTMLInputElement>(null);
+  const secondInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Auto-focus the first input when entering edit mode
+    firstInputRef.current?.focus();
+    firstInputRef.current?.select();
+  }, []);
+
+  if (isPersonType && config.titleFields) {
+    const [firstField, secondField] = config.titleFields;
+    return (
+      <div className="flex gap-2 flex-1">
+        <Input
+          ref={firstInputRef}
+          className="h-8 text-base font-semibold"
+          defaultValue={(record[firstField] as string) || ''}
+          placeholder="First name"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const firstName = (e.target as HTMLInputElement).value || null;
+              const lastName = secondInputRef.current?.value || null;
+              onSave({ [firstField]: firstName, [secondField]: lastName });
+            }
+            if (e.key === 'Escape') onCancel();
+          }}
+        />
+        <Input
+          ref={secondInputRef}
+          className="h-8 text-base font-semibold"
+          defaultValue={(record[secondField] as string) || ''}
+          placeholder="Last name"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const firstName = firstInputRef.current?.value || null;
+              const lastName = (e.target as HTMLInputElement).value || null;
+              onSave({ [firstField]: firstName, [secondField]: lastName });
+            }
+            if (e.key === 'Escape') onCancel();
+          }}
+          onBlur={() => {
+            // Save on blur from the last input
+            const firstName = firstInputRef.current?.value || null;
+            const lastName = secondInputRef.current?.value || null;
+            onSave({ [config.titleFields![0]]: firstName, [config.titleFields![1]]: lastName });
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Single title field
+  const titleField = config.titleField;
+  return (
+    <Input
+      ref={firstInputRef}
+      className="h-8 text-base font-semibold flex-1"
+      defaultValue={(record[titleField] as string) || ''}
+      placeholder="Title"
+      onBlur={(e) => {
+        const value = e.target.value || null;
+        onSave({ [titleField]: value });
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          const value = (e.target as HTMLInputElement).value || null;
+          onSave({ [titleField]: value });
+        }
+        if (e.key === 'Escape') onCancel();
+      }}
+    />
   );
 }
 

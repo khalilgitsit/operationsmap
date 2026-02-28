@@ -41,8 +41,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, Send, Settings, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Link as LinkIcon, MessageSquare, MoreHorizontal, Pencil, Plus, RefreshCw, Send, Settings, Trash2, Unlink, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExportButton } from '@/components/export-button';
 import {
@@ -127,25 +128,34 @@ export function RecordView({ config, recordId }: RecordViewProps) {
     const result = await getRecord(config.type, recordId);
     if (result.success) {
       setRecord(result.data);
-      // Resolve reference field UUIDs to human-readable labels
+      // 2.6: Resolve reference field UUIDs to human-readable labels
+      // Use Promise.allSettled so one failure doesn't block others, and update incrementally
       const refCols = config.columns.filter(
         (col: ColumnConfig) => col.type === 'reference' && col.referenceType && result.data[col.key]
       );
-      const newLabels: Record<string, { label: string; href: string }> = {};
-      for (const col of refCols) {
+      const resolvePromises = refCols.map(async (col) => {
         const refId = result.data[col.key] as string;
-        if (!refId) continue;
+        if (!refId) return null;
         const refConfig = OBJECT_CONFIGS[col.referenceType!];
-        if (!refConfig) continue;
-        const refResult = await getRecord(col.referenceType!, refId);
-        if (refResult.success && refResult.data) {
-          newLabels[col.key] = {
-            label: getRecordTitle(refResult.data, refConfig),
-            href: refConfig.recordHref(refId),
-          };
+        if (!refConfig) return null;
+        try {
+          const refResult = await getRecord(col.referenceType!, refId);
+          if (refResult.success && refResult.data) {
+            const entry = {
+              key: col.key,
+              label: getRecordTitle(refResult.data, refConfig),
+              href: refConfig.recordHref(refId),
+            };
+            // Update labels incrementally as each resolves
+            setReferenceLabels((prev) => ({ ...prev, [entry.key]: { label: entry.label, href: entry.href } }));
+            return entry;
+          }
+        } catch {
+          // Silently skip failed reference resolution
         }
-      }
-      setReferenceLabels(newLabels);
+        return null;
+      });
+      await Promise.allSettled(resolvePromises);
     }
     setLoading(false);
   }, [config.type, config.columns, recordId]);
@@ -282,13 +292,37 @@ export function RecordView({ config, recordId }: RecordViewProps) {
     });
   };
 
+  // 2.11: Fix association add/remove — detect when current record is the "target" side
+  // of the junction table and swap sourceId/targetId accordingly.
+  // The JUNCTION_COLUMNS in associations.ts defines sourceCol/targetCol per junction.
+  // Convention: junction table name starts with the source type's table prefix.
+  // e.g., "process_core_activities" -> source is "process", "core_activity_roles" -> source is "core_activity"
+  // When the current record type (config.tableName prefix) matches the junction table prefix, we're the source.
+  // Otherwise, we're the target and need to swap.
+  const getAssociationIds = useCallback((assoc: AssociationConfig, selectedId: string): [string, string] => {
+    const jt = assoc.junctionTable;
+    // Check if the junction table starts with our type name (using underscored type)
+    // config.type values: 'function', 'subfunction', 'process', 'core_activity', 'person', 'role', 'software', 'sop', 'checklist', 'template'
+    const currentType = config.type; // e.g. 'core_activity'
+    // Junction tables follow pattern: {sourceType}_{targetTypePlural}
+    // e.g. process_core_activities, core_activity_roles, sop_core_activities
+    const isCurrentRecordSource = jt.startsWith(currentType + '_') || jt.startsWith(currentType + 's_');
+
+    if (isCurrentRecordSource) {
+      return [recordId, selectedId];
+    }
+    // Current record is on the target side — swap so source comes first
+    return [selectedId, recordId];
+  }, [config.type, recordId]);
+
   const handleAddAssociation = async (assoc: AssociationConfig, targetId: string) => {
     if (assoc.junctionTable === '_children') return;
     try {
+      const [sourceId, destId] = getAssociationIds(assoc, targetId);
       const result = await addAssociation(
         assoc.junctionTable as Parameters<typeof addAssociation>[0],
-        recordId,
-        targetId
+        sourceId,
+        destId
       );
       if (!result.success) {
         toast.error(`Failed to add association: ${result.error}`);
@@ -305,10 +339,11 @@ export function RecordView({ config, recordId }: RecordViewProps) {
   const handleRemoveAssociation = async (assoc: AssociationConfig, targetId: string) => {
     if (assoc.junctionTable === '_children') return;
     try {
+      const [sourceId, destId] = getAssociationIds(assoc, targetId);
       const result = await removeAssociation(
         assoc.junctionTable as Parameters<typeof removeAssociation>[0],
-        recordId,
-        targetId
+        sourceId,
+        destId
       );
       if (!result.success) {
         toast.error(`Failed to remove association: ${result.error}`);
@@ -399,10 +434,11 @@ export function RecordView({ config, recordId }: RecordViewProps) {
   }, [config, customProperties, propertyOrder]);
 
   // 3.4.1: Determine grid layout based on object type
+  // 2.3: Activity column (middle) should be widest — left (about) fixed, middle fluid, right (associations) fixed
   const isProcessPage = config.type === 'process';
   const gridClass = isProcessPage
     ? 'grid-cols-1 lg:grid-cols-[300px_1fr_280px]'
-    : 'grid-cols-1 lg:grid-cols-[1fr_320px_280px]';
+    : 'grid-cols-1 lg:grid-cols-[280px_1fr_280px]';
 
   if (loading) {
     return (
@@ -457,6 +493,12 @@ export function RecordView({ config, recordId }: RecordViewProps) {
             numberPrefix={caWorkflowContext?.number}
           />
 
+          {/* 2.1: Separator between title area and properties */}
+          <Separator className="my-4" />
+
+          {/* 2.2: Properties section header with subtle background */}
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider bg-muted/30 px-3 py-2 rounded-md mb-3">Properties</h2>
+
           {/* 3.4.4: Unified fields (default + custom, ordered) */}
           <div className="space-y-3">
             {unifiedFields.map((field) => {
@@ -465,10 +507,39 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                 const value = record[col.key];
                 const isEditing = editingField === col.key;
 
+                // 2.5: Status badge single-click dropdown (replaces Select pattern)
+                if (col.type === 'select' && col.key === config.statusField) {
+                  return (
+                    <div key={col.key} className="flex items-start gap-4 py-2 hover:bg-muted/30 rounded px-1 -mx-1 transition-colors">
+                      <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{col.label}</span>
+                      <div className="flex-1 min-w-0">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="cursor-pointer">
+                              <StatusBadge status={(value as string) || ''} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            {(col.options || config.statusOptions).map((opt) => (
+                              <DropdownMenuItem
+                                key={opt}
+                                onSelect={() => handleFieldSave(config.statusField, opt)}
+                                className={cn(opt === (value as string) && 'font-semibold')}
+                              >
+                                <StatusBadge status={opt} />
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  );
+                }
+
                 // Multi-reference field (e.g., Other Functions on Role)
                 if (col.type === 'multi_reference') {
                   return (
-                    <div key={col.key} className="flex items-start gap-4 py-2">
+                    <div key={col.key} className="flex items-start gap-4 py-2 hover:bg-muted/30 rounded px-1 -mx-1 transition-colors">
                       <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{col.label}</span>
                       <div className="flex-1 min-w-0">
                         <MultiReferenceField
@@ -485,7 +556,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                 // Salary range field (renders two side-by-side currency inputs)
                 if (col.type === 'salary_range') {
                   return (
-                    <div key={col.key} className="flex items-start gap-4 py-2">
+                    <div key={col.key} className="flex items-start gap-4 py-2 hover:bg-muted/30 rounded px-1 -mx-1 transition-colors">
                       <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{col.label}</span>
                       <div
                         className="flex-1 min-w-0"
@@ -522,7 +593,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                 }
 
                 return (
-                  <div key={col.key} className="flex items-start gap-4 py-2">
+                  <div key={col.key} className="flex items-start gap-4 py-2 hover:bg-muted/30 rounded px-1 -mx-1 transition-colors">
                     <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{col.label}</span>
                     <div className="flex-1 min-w-0">
                       {isEditing && col.editable ? (
@@ -556,7 +627,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                 const isEditing = editingCustomProp === cp.id;
 
                 return (
-                  <div key={field.key} className="flex items-start gap-4 py-2">
+                  <div key={field.key} className="flex items-start gap-4 py-2 hover:bg-muted/30 rounded px-1 -mx-1 transition-colors">
                     <span className="text-sm text-muted-foreground shrink-0 w-36 pt-1">{cp.property_name}</span>
                     <div className="flex-1 min-w-0">
                       {isEditing ? (
@@ -620,12 +691,15 @@ export function RecordView({ config, recordId }: RecordViewProps) {
                   fetchActivities();
                 }}
               />
+              {/* 2.1: Separator between process visual and activity feed */}
+              <Separator className="my-4" />
             </div>
           )}
 
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Activity</h2>
+          {/* 2.2: Activity section header with subtle background */}
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider bg-muted/30 px-3 py-2 rounded-md mb-4">Activity</h2>
 
-          {/* Comment Input */}
+          {/* 2.9: Comment Input with labeled submit button */}
           <div className="flex gap-2 mb-4">
             <Textarea
               placeholder="Add a comment..."
@@ -635,17 +709,19 @@ export function RecordView({ config, recordId }: RecordViewProps) {
               className="text-sm"
             />
             <Button
-              size="icon"
-              variant="ghost"
+              size="sm"
+              variant="default"
               onClick={handleAddComment}
               disabled={!commentText.trim() || isPending}
+              className="self-end shrink-0"
             >
-              <Send className="h-4 w-4" />
+              <Send className="mr-1 h-3.5 w-3.5" />
+              Comment
             </Button>
           </div>
 
           <ScrollArea className="h-[calc(100vh-320px)]">
-            <div className="space-y-4 pr-4">
+            <div className="space-y-3 pr-4">
               {activities.length > 0 ? (
                 activities.map((activity) => (
                   <ActivityEntry key={activity.id as string} activity={activity} />
@@ -670,55 +746,65 @@ export function RecordView({ config, recordId }: RecordViewProps) {
 
         {/* Right Column — Associations */}
         <div className="border-l pl-6">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Associations</h2>
+          {/* 2.2: Associations section header with subtle background */}
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider bg-muted/30 px-3 py-2 rounded-md mb-4">Associations</h2>
           <ScrollArea className="h-[calc(100vh-280px)]">
-            <div className="space-y-4 pr-4">
+            <div className="space-y-3 pr-4">
               {config.associations
                 .filter((assoc) => assocVisibility?.[config.type]?.[assoc.junctionTable] !== false)
-                .map((assoc) => (
-                <AssociationSection
-                  key={assoc.junctionTable}
-                  assoc={assoc}
-                  items={associations[assoc.junctionTable] || []}
-                  recordId={recordId}
-                  onPreview={(type, id) => setPreviewState({ type, id })}
-                  onAdd={(targetId) => handleAddAssociation(assoc, targetId)}
-                  onRemove={(targetId) => handleRemoveAssociation(assoc, targetId)}
-                  onCreateNew={() => {
-                    const targetConfig = getObjectConfig(assoc.targetType);
-                    const defaults: Record<string, unknown> = {};
-                    // Auto-populate parent reference for child records
-                    if (assoc.junctionTable === '_children') {
-                      if (config.type === 'function') defaults.function_id = recordId;
-                      if (config.type === 'subfunction') defaults.subfunction_id = recordId;
-                    }
-                    setCreateState({ config: targetConfig, defaults, assoc });
-                  }}
-                  collapsed={collapsedSections.has(assoc.junctionTable)}
-                  onToggle={() => toggleSection(assoc.junctionTable)}
-                />
+                .map((assoc, idx, arr) => (
+                <div key={assoc.junctionTable}>
+                  {/* 2.2: Card-like container for each association group */}
+                  <div className="border rounded-md p-3">
+                    <AssociationSection
+                      assoc={assoc}
+                      items={associations[assoc.junctionTable] || []}
+                      recordId={recordId}
+                      onPreview={(type, id) => setPreviewState({ type, id })}
+                      onAdd={(targetId) => handleAddAssociation(assoc, targetId)}
+                      onRemove={(targetId) => handleRemoveAssociation(assoc, targetId)}
+                      onCreateNew={() => {
+                        const targetConfig = getObjectConfig(assoc.targetType);
+                        const defaults: Record<string, unknown> = {};
+                        // Auto-populate parent reference for child records
+                        if (assoc.junctionTable === '_children') {
+                          if (config.type === 'function') defaults.function_id = recordId;
+                          if (config.type === 'subfunction') defaults.subfunction_id = recordId;
+                        }
+                        setCreateState({ config: targetConfig, defaults, assoc });
+                      }}
+                      collapsed={collapsedSections.has(assoc.junctionTable)}
+                      onToggle={() => toggleSection(assoc.junctionTable)}
+                    />
+                  </div>
+                  {/* 2.1: Separator between association groups */}
+                  {idx < arr.length - 1 && <Separator className="my-3" />}
+                </div>
               ))}
 
               {/* 3.4.2: Computed Workflows association for core activities */}
               {config.type === 'core_activity' && caWorkflows.length > 0 && (
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Workflows</span>
-                    <span className="text-xs text-muted-foreground">{caWorkflows.length}</span>
+                <>
+                  <Separator className="my-3" />
+                  <div className="border rounded-md p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Workflows</span>
+                      <span className="text-xs text-muted-foreground">{caWorkflows.length}</span>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      {caWorkflows.map((wf) => (
+                        <div
+                          key={wf.id}
+                          className="bg-muted/30 rounded-md px-3 py-2 border hover:border-primary/30 transition-colors"
+                        >
+                          <Link href={`/workflows/${wf.id}`} className="text-sm text-primary hover:underline">
+                            {wf.title}
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="mt-2 space-y-1">
-                    {caWorkflows.map((wf) => (
-                      <div
-                        key={wf.id}
-                        className="text-sm px-2 py-1 rounded hover:bg-muted transition-colors"
-                      >
-                        <Link href={`/workflows/${wf.id}`} className="text-primary hover:underline">
-                          {wf.title}
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                </>
               )}
             </div>
           </ScrollArea>
@@ -901,6 +987,19 @@ function renderFieldValue(
   return (value as string) || <span className="text-muted-foreground">—</span>;
 }
 
+// 2.6: UUID regex for detecting raw UUIDs in activity values
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// 2.7: Map action types to icons
+function getActivityIcon(action: string, fieldName: string | null) {
+  if (action === 'created') return <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  if (action === 'status_changed') return <RefreshCw className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  if (action === 'comment' || fieldName === '_comment') return <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  if (action === 'association_added') return <LinkIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  if (action === 'association_removed') return <Unlink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  return <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+}
+
 function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
   const action = activity.action as string;
   const fieldName = activity.field_name as string | null;
@@ -922,19 +1021,34 @@ function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
     description = 'Deleted this record';
   } else {
     const displayName = fieldName ? humanizeFieldName(fieldName) : 'field';
-    description = `Updated ${displayName}: "${formatVal(activity.old_value)}" → "${formatVal(activity.new_value)}"`;
+    // 2.6: If new_value or old_value looks like a UUID, don't display the raw UUID
+    const newVal = activity.new_value;
+    const oldVal = activity.old_value;
+    const newIsUuid = typeof newVal === 'string' && UUID_REGEX.test(newVal);
+    const oldIsUuid = typeof oldVal === 'string' && UUID_REGEX.test(oldVal);
+    if (newIsUuid || oldIsUuid) {
+      description = `Updated ${displayName}`;
+    } else {
+      description = `Updated ${displayName}: "${formatVal(oldVal)}" → "${formatVal(newVal)}"`;
+    }
   }
 
+  // 2.7 + 2.8: Card-style entries with type icons
+  const icon = getActivityIcon(action, fieldName);
+
   return (
-    <div className="text-sm border-l-2 border-muted pl-3 py-1">
-      <div className="flex items-center justify-between gap-2">
-        <p className={cn('flex-1', fieldName === '_comment' && 'font-medium')}>
-          {description}
-        </p>
+    <div className="text-sm bg-card rounded-md p-3 border shadow-sm">
+      <div className="flex items-start gap-2">
+        <div className="mt-0.5">{icon}</div>
+        <div className="flex-1 min-w-0">
+          <p className={cn('flex-1', (action === 'comment' || fieldName === '_comment') && 'font-medium')}>
+            {description}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1" title={new Date(activity.created_at as string).toLocaleString()}>
+            {formatRelativeTime(activity.created_at as string)}
+          </p>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground mt-0.5" title={new Date(activity.created_at as string).toLocaleString()}>
-        {formatRelativeTime(activity.created_at as string)}
-      </p>
     </div>
   );
 }
@@ -1122,29 +1236,30 @@ function AssociationSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <button className="flex items-center gap-1 text-sm font-medium hover:text-primary" onClick={onToggle}>
-          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          {assoc.label}
+      {/* 2.10: Fixed header layout — toggle, label, count, and "+" all visible regardless of expand state */}
+      <div className="flex items-center gap-1">
+        <button className="flex items-center gap-1 text-sm font-medium hover:text-primary flex-1 min-w-0" onClick={onToggle}>
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
+          <span className="truncate">{assoc.label}</span>
         </button>
         {items.length > 0 && targetConfig ? (
           <Link
             href={targetConfig.listHref}
-            className="text-xs text-primary hover:underline"
+            className="text-xs text-primary hover:underline shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
             {items.length}
           </Link>
         ) : (
-          <span className="text-xs text-muted-foreground">{items.length}</span>
+          <span className="text-xs text-muted-foreground shrink-0">{items.length}</span>
         )}
         {assoc.junctionTable !== '_children' && (
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setAdding(!adding)}>
+          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setAdding(!adding)}>
             <Plus className="h-3.5 w-3.5" />
           </Button>
         )}
         {assoc.junctionTable === '_children' && (
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCreateNew}>
+          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onCreateNew}>
             <Plus className="h-3.5 w-3.5" />
           </Button>
         )}
@@ -1193,23 +1308,24 @@ function AssociationSection({
         </div>
       )}
 
+      {/* 2.12: Association items as small cards */}
       {!collapsed && (
-        <div className="mt-2 space-y-1">
+        <div className="mt-2 space-y-1.5">
           {items.length > 0 ? (
             items.map((item) => (
               <div
                 key={item.id as string}
-                className="flex items-center justify-between group text-sm px-2 py-1 rounded hover:bg-muted transition-colors"
+                className="flex items-center justify-between group text-sm bg-muted/30 rounded-md px-3 py-2 border hover:border-primary/30 transition-colors"
               >
                 <button
-                  className="text-left truncate flex-1"
+                  className="text-left truncate flex-1 font-medium"
                   onClick={() => onPreview(assoc.targetType, item.id as string)}
                 >
                   {targetConfig ? getRecordTitle(item, targetConfig) : (item.title as string) || ''}
                 </button>
                 {assoc.junctionTable !== '_children' && (
                   <button
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive"
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive ml-2 shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       onRemove(item.id as string);

@@ -61,8 +61,8 @@ export function TopBar({ userEmail, displayName, avatarUrl, activeOrgId }: TopBa
 
   function handleSwitchWorkspace(orgId: string) {
     document.cookie = `ops-map-active-org=${orgId};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
-    router.push('/');
-    router.refresh();
+    // Use full page reload to ensure all server components re-render with the new org cookie
+    window.location.href = '/';
   }
 
   return (
@@ -200,7 +200,10 @@ export function TopBar({ userEmail, displayName, avatarUrl, activeOrgId }: TopBa
       <CreateWorkspaceDialog
         open={showCreateWorkspace}
         onOpenChange={setShowCreateWorkspace}
-        onCreated={(orgId) => {
+        onCreated={async (orgId, orgName) => {
+          // Optimistically add the new workspace to the local list so it appears in the dropdown immediately
+          setWorkspaces((prev) => [...prev, { id: orgId, name: orgName, role: 'owner' }]);
+          // Switch to the new workspace (triggers full page reload)
           handleSwitchWorkspace(orgId);
         }}
       />

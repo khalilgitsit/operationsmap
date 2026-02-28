@@ -19,7 +19,7 @@ import { Loader2 } from 'lucide-react';
 interface CreateWorkspaceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated: (orgId: string) => void;
+  onCreated: (orgId: string, orgName: string) => void;
 }
 
 export function CreateWorkspaceDialog({ open, onOpenChange, onCreated }: CreateWorkspaceDialogProps) {
@@ -34,9 +34,10 @@ export function CreateWorkspaceDialog({ open, onOpenChange, onCreated }: CreateW
       const result = await createWorkspace(name.trim());
       if (result.success) {
         toast.success('Workspace created');
+        const createdName = name.trim();
         setName('');
         onOpenChange(false);
-        onCreated(result.data.id);
+        onCreated(result.data.id, createdName);
       } else {
         toast.error(result.error);
       }

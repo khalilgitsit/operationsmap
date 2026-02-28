@@ -158,14 +158,45 @@ export function QuickCreatePanel({
           </Select>
         );
 
-      case 'multi_select':
+      case 'multi_select': {
+        const currentValues = Array.isArray(formData[field.key]) ? (formData[field.key] as string[]) : [];
         return (
-          <Input
-            placeholder={field.placeholder || 'Comma-separated values'}
-            value={Array.isArray(formData[field.key]) ? (formData[field.key] as string[]).join(', ') : ''}
-            onChange={(e) => updateField(field.key, e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
-          />
+          <div className="space-y-2">
+            <Input
+              placeholder={field.placeholder || 'Comma-separated values'}
+              value={currentValues.join(', ')}
+              onChange={(e) => updateField(field.key, e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+            />
+            {field.suggestions && field.suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {field.suggestions.map((suggestion) => {
+                  const isSelected = currentValues.includes(suggestion);
+                  return (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                      }`}
+                      onClick={() => {
+                        if (isSelected) {
+                          updateField(field.key, currentValues.filter((v) => v !== suggestion));
+                        } else {
+                          updateField(field.key, [...currentValues, suggestion]);
+                        }
+                      }}
+                    >
+                      {suggestion}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         );
+      }
 
       case 'markdown':
         return (
@@ -195,6 +226,16 @@ export function QuickCreatePanel({
             placeholder={field.placeholder}
             value={(formData[field.key] as number) ?? ''}
             onChange={(e) => updateField(field.key, e.target.value ? Number(e.target.value) : null)}
+          />
+        );
+
+      case 'url':
+        return (
+          <Input
+            type="url"
+            placeholder={field.placeholder || 'https://...'}
+            value={(formData[field.key] as string) || ''}
+            onChange={(e) => updateField(field.key, e.target.value || null)}
           />
         );
 

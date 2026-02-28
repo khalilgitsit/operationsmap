@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useState, useEffect, useCallback, useTransition, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   DndContext,
@@ -49,6 +49,7 @@ import {
   type FunctionChartFunction,
   type FunctionChartSubfunction,
 } from '@/server/actions/function-chart';
+import Link from 'next/link';
 import { Plus, GripVertical, Users, Monitor, Shield, Tag, Download, Copy, FileDown, Upload } from 'lucide-react';
 import {
   DropdownMenu,
@@ -67,6 +68,7 @@ export default function FunctionChartPage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [functions, setFunctions] = useState<FunctionChartFunction[]>([]);
+  const [orgName, setOrgName] = useState('');
   const [loading, setLoading] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>('custom');
 
@@ -100,7 +102,8 @@ export default function FunctionChartPage() {
     setLoading(true);
     const result = await getFunctionChartData();
     if (result.success) {
-      setFunctions(result.data);
+      setOrgName(result.data.orgName);
+      setFunctions(result.data.functions);
     }
     setLoading(false);
   }, []);
@@ -108,6 +111,16 @@ export default function FunctionChartPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Re-fetch chart data when preview panel closes (picks up status changes etc.)
+  const prevPreviewRef = useRef(previewState);
+  useEffect(() => {
+    // When previewState transitions from open (non-null) to closed (null), re-fetch
+    if (prevPreviewRef.current !== null && previewState === null) {
+      fetchData();
+    }
+    prevPreviewRef.current = previewState;
+  }, [previewState, fetchData]);
 
   // Persist toggle state
   useEffect(() => {
@@ -169,7 +182,7 @@ export default function FunctionChartPage() {
   return (
     <TooltipProvider>
       <div>
-        <PageHeader title="Function Chart" />
+        <PageHeader title={orgName ? `${orgName} Function Chart` : 'Function Chart'} />
 
         {/* Toolbar */}
         <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -293,18 +306,21 @@ export default function FunctionChartPage() {
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0 text-muted-foreground hover:text-primary flex-shrink-0"
-                        onClick={() =>
+                        onClick={() => {
+                          const minPos = fn.subfunctions.length > 0
+                            ? Math.min(...fn.subfunctions.map((sf) => sf.position))
+                            : 0;
                           setCreateState({
                             type: 'subfunction',
-                            defaults: { function_id: fn.id },
-                          })
-                        }
+                            defaults: { function_id: fn.id, position: minPos > 0 ? minPos - 1 : 0 },
+                          });
+                        }}
                       >
                         <Plus className="h-3.5 w-3.5" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p className="text-xs">Add Subfunction</p>
+                      <p className="text-xs">Add Subfunction at Top</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -348,12 +364,15 @@ export default function FunctionChartPage() {
                   variant="ghost"
                   size="sm"
                   className="w-full h-7 text-xs text-muted-foreground hover:text-primary"
-                  onClick={() =>
+                  onClick={() => {
+                    const maxPos = fn.subfunctions.length > 0
+                      ? Math.max(...fn.subfunctions.map((sf) => sf.position))
+                      : -1;
                     setCreateState({
                       type: 'subfunction',
-                      defaults: { function_id: fn.id },
-                    })
-                  }
+                      defaults: { function_id: fn.id, position: maxPos + 1 },
+                    });
+                  }}
                 >
                   <Plus className="h-3 w-3 mr-1" />
                   Add Subfunction
@@ -391,7 +410,11 @@ export default function FunctionChartPage() {
             config={getObjectConfig(createState.type)}
             defaults={createState.defaults}
             onCreated={() => {
-              setCreateState(null);
+              // Only refresh chart data in the background.
+              // Do NOT call setCreateState(null) here — QuickCreatePanel handles
+              // panel close via onOpenChange for "Create", and keeps it open for
+              // "Create & Add Another". Closing the panel here would interfere
+              // with navigation to the new record page.
               fetchData();
             }}
           />
@@ -483,7 +506,13 @@ function SortableSubfunctionCard({
             </button>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium truncate">{subfunction.title}</span>
+                <Link
+                  href={`/subfunctions/${subfunction.id}`}
+                  className="text-sm font-medium truncate hover:underline hover:text-primary transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {subfunction.title}
+                </Link>
                 <StatusBadge status={subfunction.status} />
               </div>
 

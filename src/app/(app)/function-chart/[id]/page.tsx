@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useState, useEffect, useCallback, useTransition, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   DndContext,
@@ -55,6 +55,9 @@ interface SubfunctionColumn {
   description: string | null;
   status: string;
   position: number;
+  people: { id: string; first_name: string; last_name: string }[];
+  roles: { id: string; title: string }[];
+  software: { id: string; title: string }[];
   coreActivities: FunctionDetailCoreActivity[];
 }
 
@@ -113,6 +116,15 @@ export default function FunctionChartDetailPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Re-fetch data when preview panel closes (picks up status changes etc.)
+  const prevPreviewRef = useRef(previewState);
+  useEffect(() => {
+    if (prevPreviewRef.current !== null && previewState === null) {
+      fetchData();
+    }
+    prevPreviewRef.current = previewState;
+  }, [previewState, fetchData]);
 
   // Filter core activities
   const getFilteredActivities = (activities: FunctionDetailCoreActivity[]) => {
@@ -388,6 +400,55 @@ export default function FunctionChartDetailPage() {
                           )}
                         </Tooltip>
                         <StatusBadge status={col.status} />
+
+                        {/* Subfunction-level association tags */}
+                        {showPeople && col.people.length > 0 && (
+                          <div className="flex items-center gap-1 mt-2 flex-wrap">
+                            {col.people.slice(0, 5).map((p) => (
+                              <span
+                                key={p.id}
+                                className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[9px] font-medium"
+                                title={`${p.first_name} ${p.last_name}`}
+                              >
+                                {p.first_name[0]}{p.last_name[0]}
+                              </span>
+                            ))}
+                            {col.people.length > 5 && (
+                              <span className="text-[9px] text-muted-foreground">
+                                +{col.people.length - 5}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {showSoftware && col.software.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                            {col.software.map((s) => (
+                              <span
+                                key={s.id}
+                                className="inline-flex items-center gap-0.5 text-[9px] bg-[#d6e5f5] text-[#0b2d5d] px-1 py-0.5 rounded"
+                                title={s.title}
+                              >
+                                <Monitor className="h-2.5 w-2.5" />
+                                {s.title.length > 10 ? s.title.slice(0, 10) + '...' : s.title}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {showRoles && col.roles.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                            {col.roles.map((r) => (
+                              <span
+                                key={r.id}
+                                className="inline-flex items-center gap-0.5 text-[9px] bg-[#e8dff5] text-[#4a2d82] px-1 py-0.5 rounded"
+                              >
+                                <Shield className="h-2.5 w-2.5" />
+                                {r.title.length > 12 ? r.title.slice(0, 12) + '...' : r.title}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -492,7 +553,10 @@ export default function FunctionChartDetailPage() {
             config={getObjectConfig(createState.type)}
             defaults={createState.defaults}
             onCreated={() => {
-              setCreateState(null);
+              // Only refresh data in the background.
+              // Do NOT call setCreateState(null) here — QuickCreatePanel handles
+              // panel close via onOpenChange for "Create", and keeps it open for
+              // "Create & Add Another".
               fetchData();
             }}
           />

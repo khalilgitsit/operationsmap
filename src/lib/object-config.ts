@@ -56,6 +56,8 @@ export interface QuickCreateField {
   options?: string[];
   referenceType?: ObjectType;
   tooltip?: string;
+  /** Suggested values shown as clickable chips (for multi_select fields) */
+  suggestions?: string[];
 }
 
 export interface ObjectConfig {
@@ -102,7 +104,7 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'owner_id', label: 'Owner', type: 'reference', filterable: true, editable: true, referenceType: 'person' },
       { key: 'description', label: 'Description', type: 'markdown', visible: false, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
-      { key: 'created_at', label: 'Created', type: 'date', sortable: true, visible: false },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Function name' },
@@ -130,11 +132,15 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'function_id', label: 'Function', type: 'reference', filterable: true, editable: true, referenceType: 'function' },
       { key: 'status', label: 'Status', type: 'select', sortable: true, filterable: true, editable: true, options: operationalStatuses },
       { key: 'owner_id', label: 'Owner', type: 'reference', filterable: true, editable: true, referenceType: 'person' },
+      { key: 'description', label: 'Description', type: 'text', visible: false, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Subfunction name' },
       { key: 'function_id', label: 'Parent Function', type: 'reference', required: true, referenceType: 'function' },
+      { key: 'status', label: 'Status', type: 'select', options: operationalStatuses },
+      { key: 'owner_role_id', label: 'Owner Role', type: 'reference', referenceType: 'role' },
     ],
     associations: [
       { label: 'Core Activities', junctionTable: '_children', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
@@ -165,7 +171,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'trigger', label: 'Trigger', type: 'text', visible: false, editable: true },
       { key: 'end_state', label: 'End State', type: 'text', visible: false, editable: true },
       { key: 'estimated_duration', label: 'Est. Duration', type: 'text', visible: false, editable: true },
+      { key: 'description', label: 'Description', type: 'text', visible: false, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Process name' },
@@ -202,9 +210,13 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'end_state', label: 'End State', type: 'text', visible: false, editable: true },
       { key: 'video_url', label: 'Video', type: 'url', visible: false, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Must start with action verb (e.g., "Review invoice")' },
+      { key: 'status', label: 'Status', type: 'select', options: operationalStatuses },
+      { key: 'trigger', label: 'Trigger', type: 'text', placeholder: 'What triggers this activity?' },
+      { key: 'end_state', label: 'End State', type: 'text', placeholder: 'What is the end state?' },
     ],
     associations: [
       { label: 'Processes', junctionTable: 'process_core_activities', targetType: 'process', targetLabel: 'Processes', targetLabelField: 'title' },
@@ -239,7 +251,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'location', label: 'Location', type: 'text', visible: false, editable: true },
       { key: 'salary', label: 'Salary', type: 'currency', visible: false, editable: true },
       { key: 'start_date', label: 'Start Date', type: 'date', visible: false, editable: true },
+      { key: 'description', label: 'Description', type: 'text', visible: false, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'first_name', label: 'First Name', type: 'text', required: true, placeholder: 'First name' },
@@ -274,7 +288,9 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'other_function_ids', label: 'Other Functions', type: 'multi_reference', editable: true, referenceType: 'function' },
       { key: 'brief_description', label: 'Brief Description', type: 'text', editable: true },
       { key: 'salary_range', label: 'Salary Range', type: 'salary_range', editable: true },
+      { key: 'description', label: 'Description', type: 'text', visible: false, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Role title' },
@@ -310,11 +326,14 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'number_of_seats', label: 'Seats', type: 'number', visible: false, editable: true },
       { key: 'billing_cycle', label: 'Billing Cycle', type: 'select', options: billingCycles, visible: false, editable: true },
       { key: 'renewal_date', label: 'Renewal Date', type: 'date', sortable: true, visible: false, editable: true },
+      { key: 'description', label: 'Description', type: 'text', visible: false, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Software name' },
-      { key: 'category', label: 'Category', type: 'multi_select' },
+      { key: 'category', label: 'Category', type: 'multi_select', suggestions: ['Communication', 'Project Management', 'CRM', 'Design', 'Development', 'Analytics', 'Finance', 'HR', 'Security'] },
+      { key: 'url', label: 'Website', type: 'url', placeholder: 'https://...' },
     ],
     associations: [
       { label: 'People', junctionTable: 'software_people', targetType: 'person', targetLabel: 'People', targetLabelField: 'first_name' },
@@ -346,10 +365,13 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'version', label: 'Version', type: 'number', sortable: true, editable: true },
       { key: 'last_reviewed', label: 'Last Reviewed', type: 'date', sortable: true, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
-      { key: 'created_at', label: 'Created', type: 'date', sortable: true, visible: false },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'SOP title' },
+      { key: 'status', label: 'Status', type: 'select', options: documentStatuses },
+      { key: 'trigger', label: 'Trigger', type: 'text', placeholder: 'What triggers this SOP?' },
+      { key: 'end_state', label: 'End State', type: 'text', placeholder: 'What is the end state?' },
     ],
     associations: [
       { label: 'Core Activities', junctionTable: 'sop_core_activities', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
@@ -382,10 +404,12 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'version', label: 'Version', type: 'number', sortable: true, editable: true },
       { key: 'last_reviewed', label: 'Last Reviewed', type: 'date', sortable: true, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
-      { key: 'created_at', label: 'Created', type: 'date', sortable: true, visible: false },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Checklist title' },
+      { key: 'status', label: 'Status', type: 'select', options: documentStatuses },
+      { key: 'description', label: 'Description', type: 'markdown', placeholder: 'Brief description of this checklist...' },
     ],
     associations: [
       { label: 'Core Activities', junctionTable: 'checklist_core_activities', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },
@@ -419,11 +443,13 @@ export const OBJECT_CONFIGS: Record<string, ObjectConfig> = {
       { key: 'version', label: 'Version', type: 'number', sortable: true, editable: true },
       { key: 'last_reviewed', label: 'Last Reviewed', type: 'date', sortable: true, editable: true },
       { key: 'updated_at', label: 'Last Modified', type: 'date', sortable: true },
-      { key: 'created_at', label: 'Created', type: 'date', sortable: true, visible: false },
+      { key: 'created_at', label: 'Created', type: 'date', sortable: true, editable: false, visible: false },
     ],
     quickCreateFields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Template title' },
       { key: 'type', label: 'Type', type: 'select', options: templateTypes },
+      { key: 'status', label: 'Status', type: 'select', options: documentStatuses },
+      { key: 'description', label: 'Description', type: 'markdown', placeholder: 'Brief description of this template...' },
     ],
     associations: [
       { label: 'Core Activities', junctionTable: 'template_core_activities', targetType: 'core_activity', targetLabel: 'Core Activities', targetLabelField: 'title' },

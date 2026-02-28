@@ -8,6 +8,20 @@ import { StatusBadge } from '@/components/status-badge';
 import { TYPE_COLORS, DEFAULT_BADGE_COLORS } from '@/lib/object-config';
 import { globalSearch, type SearchResult } from '@/server/actions/search';
 
+const TYPE_ABBREVIATIONS: Record<string, string> = {
+  function: 'FUN',
+  subfunction: 'SUB',
+  process: 'PRC',
+  core_activity: 'CA',
+  person: 'PER',
+  role: 'ROL',
+  software: 'SW',
+  sop: 'SOP',
+  checklist: 'CHK',
+  template: 'TPL',
+  workflow: 'WF',
+};
+
 interface SearchResultGroup {
   objectType: string;
   objectLabel: string;
@@ -165,9 +179,7 @@ export function GlobalSearch() {
                             TYPE_COLORS[result.objectType] || DEFAULT_BADGE_COLORS
                           }`}
                         >
-                          {result.objectType === 'core_activity'
-                            ? 'CA'
-                            : result.objectLabel.slice(0, 3).toUpperCase()}
+                          {TYPE_ABBREVIATIONS[result.objectType] || result.objectLabel.slice(0, 3).toUpperCase()}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">{result.title}</div>

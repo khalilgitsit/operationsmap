@@ -112,6 +112,7 @@ function SortableUnifiedPropertyItem({
   prop,
   isAdmin,
   statusFieldKey,
+  titleFieldKeys,
   editingId,
   editName,
   setEditingId,
@@ -123,6 +124,7 @@ function SortableUnifiedPropertyItem({
   prop: UnifiedProperty;
   isAdmin: boolean;
   statusFieldKey: string;
+  titleFieldKeys: string[];
   editingId: string | null;
   editName: string;
   setEditingId: (id: string | null) => void;
@@ -149,6 +151,7 @@ function SortableUnifiedPropertyItem({
 
   const isComputed = prop.origin === 'computed';
   const isCustom = prop.origin === 'custom';
+  const isTitle = titleFieldKeys.includes(prop.key);
 
   return (
     <div
@@ -220,6 +223,15 @@ function SortableUnifiedPropertyItem({
               <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </TooltipTrigger>
             <TooltipContent>This field is auto-calculated</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : isTitle ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </TooltipTrigger>
+            <TooltipContent>Title is always required</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       ) : prop.isCritical ? (
@@ -679,6 +691,7 @@ export default function ObjectConfigPage() {
 
   const currentStatuses = getStatusesForType(selectedType);
   const statusFieldKey = config?.statusField || 'status';
+  const titleFieldKeys = config?.titleFields ?? (config?.titleField ? [config.titleField] : ['title']);
 
   return (
     <div className="max-w-3xl">
@@ -737,6 +750,7 @@ export default function ObjectConfigPage() {
                         prop={prop}
                         isAdmin={isAdmin}
                         statusFieldKey={statusFieldKey}
+                        titleFieldKeys={titleFieldKeys}
                         editingId={editingId}
                         editName={editName}
                         setEditingId={setEditingId}
