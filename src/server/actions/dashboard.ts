@@ -55,10 +55,12 @@ function fromTable(supabase: any, table: string): any {
 async function getStatusCounts(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  table: string
+  table: string,
+  organizationId: string
 ): Promise<StatusCounts> {
   const { data, error } = await fromTable(supabase, table)
-    .select('status');
+    .select('status')
+    .eq('organization_id', organizationId);
   if (error || !data) return { total: 0, active: 0, draft: 0, needsUpdate: 0, inReview: 0, archived: 0 };
 
   const rows = data as { status: string }[];
@@ -78,6 +80,8 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
   const supabase = await createClient();
 
   // Run all queries in parallel
+  const orgId = auth.organizationId;
+
   const [
     caCounts,
     processCounts,
@@ -94,30 +98,31 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
     casNoSubfunction,
   ] = await Promise.all([
     // Core Activity status counts
-    getStatusCounts(supabase, 'core_activities'),
+    getStatusCounts(supabase, 'core_activities', orgId),
     // Process status counts
-    getStatusCounts(supabase, 'processes'),
+    getStatusCounts(supabase, 'processes', orgId),
     // Function count
-    fromTable(supabase, 'functions').select('*', { count: 'exact', head: true }),
+    fromTable(supabase, 'functions').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
     // Subfunction count
-    fromTable(supabase, 'subfunctions').select('*', { count: 'exact', head: true }),
+    fromTable(supabase, 'subfunctions').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
     // People count
-    fromTable(supabase, 'persons').select('*', { count: 'exact', head: true }),
+    fromTable(supabase, 'persons').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
     // Role count
-    fromTable(supabase, 'roles').select('*', { count: 'exact', head: true }),
+    fromTable(supabase, 'roles').select('*', { count: 'exact', head: true }).eq('organization_id', orgId),
     // Software spend (sum total_current_cost)
-    fromTable(supabase, 'software').select('monthly_cost,annual_cost'),
+    fromTable(supabase, 'software').select('monthly_cost,annual_cost').eq('organization_id', orgId),
     // Recent activity (last 10)
     supabase
       .from('activity_log')
       .select('*')
+      .eq('organization_id', orgId)
       .order('created_at', { ascending: false })
       .limit(10),
     // Suggestions: draft CAs
-    fromTable(supabase, 'core_activities').select('id', { count: 'exact', head: true }).eq('status', 'Draft'),
+    fromTable(supabase, 'core_activities').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('status', 'Draft'),
     // Suggestions: processes with no core activities
     (async () => {
-      const { data: allProcesses } = await fromTable(supabase, 'processes').select('id');
+      const { data: allProcesses } = await fromTable(supabase, 'processes').select('id').eq('organization_id', orgId);
       if (!allProcesses?.length) return { count: 0 };
       const { data: linkedProcesses } = await fromTable(supabase, 'process_core_activities')
         .select('process_id');
@@ -126,9 +131,9 @@ export async function getDashboardData(): Promise<ActionResult<DashboardData>> {
       return { count: empty.length };
     })(),
     // Suggestions: subfunctions without owner
-    fromTable(supabase, 'subfunctions').select('id,title').is('owner_id', null).limit(5),
+    fromTable(supabase, 'subfunctions').select('id,title').eq('organization_id', orgId).is('owner_id', null).limit(5),
     // Suggestions: CAs without subfunction
-    fromTable(supabase, 'core_activities').select('id', { count: 'exact', head: true }).is('subfunction_id', null),
+    fromTable(supabase, 'core_activities').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).is('subfunction_id', null),
   ]);
 
   // Calculate software spend

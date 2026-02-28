@@ -50,13 +50,15 @@ export async function listRecords(
   const sortField = options.sortField ?? 'created_at';
   const sortDirection = options.sortDirection ?? 'desc';
 
-  // Get total count
+  // Get total count (scoped to active workspace)
   const { count, error: countError } = await fromTable(supabase, table)
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', auth.organizationId);
   if (countError) return { success: false, error: countError.message };
 
   let query = fromTable(supabase, table)
     .select('*')
+    .eq('organization_id', auth.organizationId)
     .order(sortField, { ascending: sortDirection === 'asc' })
     .limit(limit + 1);
 
@@ -254,7 +256,7 @@ export async function searchRecords(
   // Determine label fields based on type
   const labelFields = objectType === 'person' ? 'id,first_name,last_name' : 'id,title';
 
-  let dbQuery = fromTable(supabase, table).select(labelFields).limit(limit);
+  let dbQuery = fromTable(supabase, table).select(labelFields).eq('organization_id', auth.organizationId).limit(limit);
 
   if (query) {
     if (objectType === 'person') {

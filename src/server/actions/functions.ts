@@ -138,6 +138,7 @@ export async function listFunctions(
   let query = supabase
     .from('functions')
     .select()
+    .eq('organization_id', auth.organizationId)
     .order('created_at', { ascending: false })
     .limit(limit + 1);
 

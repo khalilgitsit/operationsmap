@@ -752,6 +752,7 @@ export async function listWorkflows(): Promise<
   const { data: workflows, error: wfError } = await supabase
     .from('workflows')
     .select('id, title, description, status, created_at, updated_at')
+    .eq('organization_id', auth.organizationId)
     .order('created_at', { ascending: false });
 
   if (wfError) return { success: false, error: wfError.message };

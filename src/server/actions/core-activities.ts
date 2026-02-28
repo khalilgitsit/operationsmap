@@ -91,7 +91,7 @@ export async function listCoreActivities(cursor?: string, limit: number = 50): P
   const auth = await getAuthContextSafe();
   if (!auth) return { success: false, error: 'Not authenticated' };
   const supabase = await createClient();
-  let query = supabase.from('core_activities').select().order('created_at', { ascending: false }).limit(limit + 1);
+  let query = supabase.from('core_activities').select().eq('organization_id', auth.organizationId).order('created_at', { ascending: false }).limit(limit + 1);
   if (cursor) query = query.lt('id', cursor);
   const { data, error } = await query;
   if (error) return { success: false, error: error.message };

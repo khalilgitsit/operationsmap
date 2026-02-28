@@ -74,19 +74,21 @@ export async function getFunctionChartData(): Promise<
     .single();
   const orgName = org?.name || '';
 
-  // Fetch all functions
+  // Fetch all functions (scoped to active workspace)
   const { data: functions, error: funcError } = await supabase
     .from('functions')
     .select('id, title, description, status, created_at')
+    .eq('organization_id', auth.organizationId)
     .order('created_at', { ascending: true });
 
   if (funcError) return { success: false, error: funcError.message };
   if (!functions?.length) return { success: true, data: { orgName, functions: [] } };
 
-  // Fetch all subfunctions
+  // Fetch all subfunctions (scoped to active workspace)
   const { data: subfunctions, error: subError } = await supabase
     .from('subfunctions')
     .select('id, title, description, status, function_id, position')
+    .eq('organization_id', auth.organizationId)
     .order('position', { ascending: true });
 
   if (subError) return { success: false, error: subError.message };
