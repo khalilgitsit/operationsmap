@@ -53,6 +53,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { StatusBadge } from '@/components/status-badge';
+import { ToggleButton } from '@/components/toggle-button';
+import { LoadingSpinner } from '@/components/loading-spinner';
+import { PersonAvatars, SoftwareTags, RoleTags } from '@/components/association-tags';
+import { usePersistentToggle } from '@/hooks/usePersistentToggle';
 import { PreviewPanel } from '@/components/preview-panel';
 import { PageHeader } from '@/components/page-header';
 import {
@@ -114,26 +118,14 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
 
   // Toggle states
-  const [showPeople, setShowPeople] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('wf-show-people') === 'true';
-    return false;
-  });
-  const [showSoftware, setShowSoftware] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('wf-show-software') === 'true';
-    return false;
-  });
-  const [showRoles, setShowRoles] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('wf-show-roles') === 'true';
-    return false;
-  });
+  const [showPeople, setShowPeople] = usePersistentToggle('wf-show-people');
+  const [showSoftware, setShowSoftware] = usePersistentToggle('wf-show-software');
+  const [showRoles, setShowRoles] = usePersistentToggle('wf-show-roles');
   const [visibilityMode, setVisibilityMode] = useState<VisibilityMode>(() => {
     if (typeof window !== 'undefined') return (localStorage.getItem('wf-visibility') as VisibilityMode) || 'not-archived';
     return 'not-archived';
   });
-  const [showGaps, setShowGaps] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('wf-show-gaps') === 'true';
-    return false;
-  });
+  const [showGaps, setShowGaps] = usePersistentToggle('wf-show-gaps');
   const [gapIds, setGapIds] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -201,12 +193,8 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
     fetchData();
   }, [fetchData]);
 
-  // Persist toggles
-  useEffect(() => { localStorage.setItem('wf-show-people', String(showPeople)); }, [showPeople]);
-  useEffect(() => { localStorage.setItem('wf-show-software', String(showSoftware)); }, [showSoftware]);
-  useEffect(() => { localStorage.setItem('wf-show-roles', String(showRoles)); }, [showRoles]);
+  // Persist non-toggle state
   useEffect(() => { localStorage.setItem('wf-visibility', visibilityMode); }, [visibilityMode]);
-  useEffect(() => { localStorage.setItem('wf-show-gaps', String(showGaps)); }, [showGaps]);
   useEffect(() => { localStorage.setItem(`wf-gaps-${workflowId}`, JSON.stringify([...gapIds])); }, [gapIds, workflowId]);
 
   // Filter by visibility
@@ -295,7 +283,7 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
       <div>
         <PageHeader title="Workflow Map" backHref="/workflows" backLabel="All Workflows" />
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <LoadingSpinner />
         </div>
       </div>
     );
@@ -581,15 +569,6 @@ export default function WorkflowMapPage({ params }: { params: Promise<{ id: stri
 }
 
 // --- Sub-components ---
-
-function ToggleButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return (
-    <Button variant={active ? 'default' : 'outline'} size="sm" className="h-8 gap-1.5" onClick={onClick}>
-      {icon}
-      <span className="text-xs">{label}</span>
-    </Button>
-  );
-}
 
 function AddPhaseButton({ onClick }: { onClick: () => void }) {
   return (
@@ -1369,43 +1348,9 @@ function SortableCoreActivity({
           {coreActivity.title}
         </span>
 
-        {/* People */}
-        {showPeople && coreActivity.people.length > 0 && (
-          <div className="flex items-center gap-1 mt-1 flex-wrap">
-            {coreActivity.people.slice(0, 3).map((p) => (
-              <span key={p.id} className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-primary text-[9px] font-medium" title={`${p.first_name} ${p.last_name}`}>
-                {p.first_name[0]}{p.last_name[0]}
-              </span>
-            ))}
-            {coreActivity.people.length > 3 && (
-              <span className="text-[9px] text-muted-foreground">+{coreActivity.people.length - 3}</span>
-            )}
-          </div>
-        )}
-
-        {/* Software */}
-        {showSoftware && coreActivity.software.length > 0 && (
-          <div className="flex items-center gap-1 mt-1 flex-wrap">
-            {coreActivity.software.map((s) => (
-              <span key={s.id} className="inline-flex items-center gap-0.5 text-[9px] bg-[#d6e5f5] text-[#0b2d5d] px-1 py-0.5 rounded" title={s.title}>
-                <Monitor className="h-2.5 w-2.5" />
-                {s.title.length > 10 ? s.title.slice(0, 10) + '...' : s.title}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Roles */}
-        {showRoles && coreActivity.roles.length > 0 && (
-          <div className="flex items-center gap-1 mt-1 flex-wrap">
-            {coreActivity.roles.map((r) => (
-              <span key={r.id} className="inline-flex items-center gap-0.5 text-[9px] bg-[#e8dff5] text-[#4a2d82] px-1 py-0.5 rounded">
-                <Shield className="h-2.5 w-2.5" />
-                {r.title.length > 12 ? r.title.slice(0, 12) + '...' : r.title}
-              </span>
-            ))}
-          </div>
-        )}
+        {showPeople && <PersonAvatars people={coreActivity.people} size="sm" maxItems={3} className="mt-1" />}
+        {showSoftware && <SoftwareTags software={coreActivity.software} size="sm" className="mt-1" />}
+        {showRoles && <RoleTags roles={coreActivity.roles} size="sm" className="mt-1" />}
       </div>
 
       {showGaps && isCAGap && (

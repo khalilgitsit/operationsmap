@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ExternalLink, Plus, X, ChevronLeft } from 'lucide-react';
+import { LoadingSpinner } from '@/components/loading-spinner';
 import {
   type ObjectConfig,
   type ColumnConfig,
@@ -69,58 +70,59 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
     if (recordResult.success) setRecord(recordResult.data);
     if (activityResult.success) setActivities(activityResult.data.items);
 
-    // Fetch associations
-    const assocResults: Record<string, Record<string, unknown>[]> = {};
-    for (const assoc of config.associations) {
-      const result = await getAssociations(currentType, currentId, assoc.junctionTable, assoc.targetType);
-      if (result.success) assocResults[assoc.junctionTable] = result.data;
-    }
-    setAssociations(assocResults);
+    // Fetch associations in parallel
+    const assocEntries = await Promise.all(
+      config.associations.map(async (assoc) => {
+        const result = await getAssociations(currentType, currentId, assoc.junctionTable, assoc.targetType);
+        return [assoc.junctionTable, result.success ? result.data : []] as const;
+      })
+    );
+    setAssociations(Object.fromEntries(assocEntries));
 
-    // Resolve reference field UUIDs to labels
+    // Resolve reference field UUIDs to labels in parallel
     if (recordResult.success && recordResult.data && config) {
       const refCols = config.columns.filter(
         (col: ColumnConfig) => col.type === 'reference' && col.referenceType && recordResult.data[col.key]
       );
-      const newLabels: Record<string, { label: string; href: string }> = {};
-      for (const col of refCols) {
-        const refId = recordResult.data[col.key] as string;
-        if (!refId) continue;
-        const refConfig = OBJECT_CONFIGS[col.referenceType!];
-        if (!refConfig) continue;
-        const refResult = await getRecord(col.referenceType!, refId);
-        if (refResult.success && refResult.data) {
-          newLabels[col.key] = {
-            label: getRecordTitle(refResult.data, refConfig),
-            href: refConfig.recordHref(refId),
-          };
-        }
-      }
-      setReferenceLabels(newLabels);
+      const refEntries = await Promise.all(
+        refCols.map(async (col) => {
+          const refId = recordResult.data[col.key] as string;
+          const refConfig = OBJECT_CONFIGS[col.referenceType!];
+          if (!refId || !refConfig) return null;
+          const refResult = await getRecord(col.referenceType!, refId);
+          if (refResult.success && refResult.data) {
+            return [col.key, { label: getRecordTitle(refResult.data, refConfig), href: refConfig.recordHref(refId) }] as const;
+          }
+          return null;
+        })
+      );
+      setReferenceLabels(Object.fromEntries(refEntries.filter(Boolean) as [string, { label: string; href: string }][]));
 
-      // Resolve multi_reference fields
+      // Resolve multi_reference fields in parallel
       const multiRefCols = config.columns.filter(
         (col: ColumnConfig) => col.type === 'multi_reference' && col.referenceType && recordResult.data[col.key]
       );
-      const newMultiLabels: Record<string, { label: string; href: string }[]> = {};
-      for (const col of multiRefCols) {
-        const ids = recordResult.data[col.key];
-        if (!Array.isArray(ids) || ids.length === 0) continue;
-        const refConfig = OBJECT_CONFIGS[col.referenceType!];
-        if (!refConfig) continue;
-        const resolved: { label: string; href: string }[] = [];
-        for (const id of ids as string[]) {
-          const refResult = await getRecord(col.referenceType!, id);
-          if (refResult.success && refResult.data) {
-            resolved.push({
-              label: getRecordTitle(refResult.data, refConfig),
-              href: refConfig.recordHref(id),
-            });
-          }
-        }
-        newMultiLabels[col.key] = resolved;
-      }
-      setMultiReferenceLabels(newMultiLabels);
+      const multiRefEntries = await Promise.all(
+        multiRefCols.map(async (col) => {
+          const ids = recordResult.data[col.key];
+          if (!Array.isArray(ids) || ids.length === 0) return null;
+          const refConfig = OBJECT_CONFIGS[col.referenceType!];
+          if (!refConfig) return null;
+          const resolved = await Promise.all(
+            (ids as string[]).map(async (id) => {
+              const refResult = await getRecord(col.referenceType!, id);
+              if (refResult.success && refResult.data) {
+                return { label: getRecordTitle(refResult.data, refConfig), href: refConfig.recordHref(id) };
+              }
+              return null;
+            })
+          );
+          return [col.key, resolved.filter(Boolean)] as const;
+        })
+      );
+      setMultiReferenceLabels(
+        Object.fromEntries(multiRefEntries.filter(Boolean) as [string, { label: string; href: string }[]][])
+      );
     }
 
     setLoading(false);
@@ -292,7 +294,7 @@ export function PreviewPanel({ open, onOpenChange, objectType, recordId }: Previ
         <ScrollArea className="flex-1">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <LoadingSpinner />
             </div>
           ) : record ? (
             <div className="px-6 pb-6 space-y-6">
