@@ -160,14 +160,16 @@ export async function globalSearch(
       .map((f) => `${f}.ilike.${searchTerm}`)
       .join(',');
 
-    // Get count
+    // Get count (scoped to active workspace)
     const { count } = await fromTable(supabase, config.table)
       .select('*', { count: 'exact', head: true })
+      .eq('organization_id', auth.organizationId)
       .or(orFilters);
 
-    // Get results
+    // Get results (scoped to active workspace)
     const { data, error } = await fromTable(supabase, config.table)
       .select('*')
+      .eq('organization_id', auth.organizationId)
       .or(orFilters)
       .order('updated_at', { ascending: false })
       .limit(limit);
