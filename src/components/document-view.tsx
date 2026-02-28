@@ -43,15 +43,21 @@ import {
 import {
   ChevronDown,
   ChevronRight,
+  ExternalLink,
+  Link,
   Maximize2,
+  MessageSquare,
   Minimize2,
   MoreHorizontal,
   PanelRightClose,
   PanelRightOpen,
+  Pencil,
   Plus,
+  RefreshCw,
   Send,
   Settings,
   Trash2,
+  Unlink,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -89,13 +95,13 @@ interface DocumentViewProps {
 function getBodyFields(type: string): string[] {
   switch (type) {
     case 'sop':
-      return ['description', 'trigger', 'end_state', 'content', 'video_url'];
+      return ['trigger', 'end_state', 'content', 'video_url'];
     case 'checklist':
-      return ['description', 'trigger', 'end_state', 'content'];
+      return ['trigger', 'end_state', 'content'];
     case 'template':
-      return ['description', 'content'];
+      return ['content'];
     default:
-      return ['content', 'trigger', 'end_state', 'description'];
+      return ['content', 'trigger', 'end_state'];
   }
 }
 
@@ -501,7 +507,7 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
                   <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Activity</h2>
 
                   {/* Comment Input */}
-                  <div className="flex gap-2 mb-3">
+                  <div className="flex flex-col gap-2 mb-3">
                     <Textarea
                       placeholder="Add a comment..."
                       value={commentText}
@@ -509,15 +515,18 @@ export function DocumentView({ config, recordId, sidePanel = false, onExpandToFu
                       rows={2}
                       className="text-xs"
                     />
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={handleAddComment}
-                      disabled={!commentText.trim() || isPending}
-                      className="h-8 w-8 shrink-0"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={handleAddComment}
+                        disabled={!commentText.trim() || isPending}
+                        className="h-7 text-xs"
+                      >
+                        <Send className="mr-1 h-3 w-3" />
+                        Comment
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
@@ -704,15 +713,6 @@ function DocumentBodyFields({
   if (config.type === 'sop') {
     return (
       <>
-        {/* Description — small textarea */}
-        <SmallTextField
-          label="Description"
-          value={(record.description as string) || ''}
-          onSave={(v) => onFieldSave('description', v)}
-          multiline
-          placeholder="Brief description of this SOP..."
-        />
-
         {/* Trigger — single line */}
         <SmallTextField
           label="Trigger"
@@ -760,15 +760,6 @@ function DocumentBodyFields({
   if (config.type === 'checklist') {
     return (
       <>
-        {/* Description — small textarea */}
-        <SmallTextField
-          label="Description"
-          value={(record.description as string) || ''}
-          onSave={(v) => onFieldSave('description', v)}
-          multiline
-          placeholder="Brief description of this checklist..."
-        />
-
         {/* Trigger — single line */}
         <SmallTextField
           label="Trigger"
@@ -798,15 +789,17 @@ function DocumentBodyFields({
   }
 
   if (config.type === 'template') {
+    const externalUrl = (record.custom_properties as Record<string, unknown> | null)?.external_url as string | undefined;
+
     return (
       <>
-        {/* Description — small textarea */}
-        <SmallTextField
-          label="Description"
-          value={(record.description as string) || ''}
-          onSave={(v) => onFieldSave('description', v)}
-          multiline
-          placeholder="Brief description of this template..."
+        {/* External Link */}
+        <TemplateExternalLink
+          url={externalUrl || ''}
+          onSave={(url) => {
+            const existing = (record.custom_properties as Record<string, unknown>) || {};
+            onFieldSave('custom_properties', { ...existing, external_url: url || null });
+          }}
         />
 
         {/* Content — full TipTap with visible heading */}
@@ -918,6 +911,76 @@ function SmallTextField({
   );
 }
 
+function TemplateExternalLink({
+  url,
+  onSave,
+}: {
+  url: string;
+  onSave: (url: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [localUrl, setLocalUrl] = useState(url);
+
+  useEffect(() => {
+    setLocalUrl(url);
+  }, [url]);
+
+  const handleSave = () => {
+    if (localUrl !== url) {
+      onSave(localUrl || null);
+    }
+    setEditing(false);
+  };
+
+  return (
+    <div className="mb-4">
+      <h3 className="text-sm font-medium text-muted-foreground mb-1.5">External Link</h3>
+      {editing ? (
+        <Input
+          autoFocus
+          type="url"
+          className="h-8 text-sm"
+          value={localUrl}
+          onChange={(e) => setLocalUrl(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave();
+            if (e.key === 'Escape') { setLocalUrl(url); setEditing(false); }
+          }}
+          placeholder="https://docs.google.com/..."
+        />
+      ) : url ? (
+        <div className="flex items-center gap-2">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline break-all flex items-center gap-1.5"
+          >
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+            {url}
+          </a>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5 text-xs text-muted-foreground shrink-0"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <button
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          onClick={() => setEditing(true)}
+        >
+          + Add external link URL...
+        </button>
+      )}
+    </div>
+  );
+}
+
 function PropertyEditField({
   col,
   value,
@@ -1015,6 +1078,15 @@ function renderPropertyValue(col: { key: string; type: string }, value: unknown,
   return (value as string) || <span className="text-muted-foreground">—</span>;
 }
 
+function getActivityIcon(action: string, fieldName: string | null) {
+  if (action === 'created') return <Plus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  if (action === 'status_changed') return <RefreshCw className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  if (action === 'association_added') return <Link className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  if (action === 'association_removed') return <Unlink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  if (action === 'comment' || fieldName === '_comment') return <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+  return <Pencil className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+}
+
 function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
   const action = activity.action as string;
   const fieldName = activity.field_name as string | null;
@@ -1044,11 +1116,14 @@ function ActivityEntry({ activity }: { activity: Record<string, unknown> }) {
   }
 
   return (
-    <div className="text-xs border-l-2 border-muted pl-2 py-1">
-      <p className={cn('flex-1', fieldName === '_comment' && 'font-medium')}>
-        {description}
-      </p>
-      <p className="text-[10px] text-muted-foreground mt-0.5" title={new Date(activity.created_at as string).toLocaleString()}>
+    <div className="text-xs bg-muted/20 rounded-md p-2 border">
+      <div className="flex items-start gap-1.5">
+        {getActivityIcon(action, fieldName)}
+        <p className={cn('flex-1', (action === 'comment' || fieldName === '_comment') && 'font-medium')}>
+          {description}
+        </p>
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-1" title={new Date(activity.created_at as string).toLocaleString()}>
         {formatRelativeTime(activity.created_at as string)}
       </p>
     </div>
