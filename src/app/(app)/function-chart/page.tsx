@@ -513,7 +513,7 @@ function SortableSubfunctionCard({
                   {subfunction.software.map((s) => (
                     <span
                       key={s.id}
-                      className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded"
+                      className="inline-flex items-center gap-1 text-[10px] bg-[#d6e5f5] text-[#0b2d5d] px-1.5 py-0.5 rounded"
                       title={s.title}
                     >
                       <Monitor className="h-3 w-3" />
@@ -529,7 +529,7 @@ function SortableSubfunctionCard({
                   {subfunction.roles.map((r) => (
                     <span
                       key={r.id}
-                      className="inline-flex items-center gap-1 text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded"
+                      className="inline-flex items-center gap-1 text-[10px] bg-[#e8dff5] text-[#4a2d82] px-1.5 py-0.5 rounded"
                     >
                       <Shield className="h-3 w-3" />
                       {r.title.length > 15 ? r.title.slice(0, 15) + '...' : r.title}

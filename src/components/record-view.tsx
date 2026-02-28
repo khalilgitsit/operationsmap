@@ -623,7 +623,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
             </div>
           )}
 
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Activity</h2>
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Activity</h2>
 
           {/* Comment Input */}
           <div className="flex gap-2 mb-4">
@@ -670,7 +670,7 @@ export function RecordView({ config, recordId }: RecordViewProps) {
 
         {/* Right Column — Associations */}
         <div className="border-l pl-6">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Associations</h2>
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Associations</h2>
           <ScrollArea className="h-[calc(100vh-280px)]">
             <div className="space-y-4 pr-4">
               {config.associations
@@ -1005,7 +1005,7 @@ function RecordTitleBar({
         {isEditingTitle ? (
           <Input
             autoFocus
-            className="text-xl font-semibold h-auto py-1"
+            className="text-xl font-medium h-auto py-1"
             defaultValue={title}
             onBlur={(e) => onFieldSave(titleField, e.target.value || null)}
             onKeyDown={(e) => {
@@ -1022,7 +1022,7 @@ function RecordTitleBar({
               </span>
             )}
             <h1
-              className="text-xl font-semibold cursor-pointer hover:text-primary transition-colors"
+              className="text-xl font-medium cursor-pointer hover:text-primary transition-colors"
               onClick={() => onSetEditingField(titleField)}
             >
               {title || 'Untitled'}

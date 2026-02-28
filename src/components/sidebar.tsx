@@ -51,7 +51,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'relative flex h-full flex-col border-r bg-background transition-all duration-200',
+        'relative flex h-full flex-col border-r bg-card transition-all duration-200',
         isExpanded ? 'w-60' : 'w-14'
       )}
       onMouseEnter={() => collapsed && setHovering(true)}
@@ -60,7 +60,7 @@ export function Sidebar() {
       {/* Toggle button */}
       <button
         onClick={toggleCollapsed}
-        className="absolute -right-3 top-6 z-10 flex h-6 w-6 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent"
+        className="absolute -right-3 top-6 z-10 flex h-6 w-6 items-center justify-center rounded-full border bg-card shadow-none hover:bg-accent"
       >
         {collapsed ? (
           <ChevronRight className="h-3 w-3" />
@@ -95,8 +95,8 @@ export function Sidebar() {
                       className={cn(
                         'flex h-9 w-full items-center justify-center rounded-md text-sm',
                         isActive
-                          ? 'bg-accent text-accent-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                       )}
                     >
                       <item.icon className="h-4 w-4" />
@@ -114,8 +114,8 @@ export function Sidebar() {
                 className={cn(
                   'flex h-9 items-center gap-3 rounded-md px-3 text-sm',
                   isActive
-                    ? 'bg-accent text-accent-foreground font-medium'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-primary/10 text-primary font-medium'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
@@ -133,8 +133,8 @@ export function Sidebar() {
                     className={cn(
                       'flex h-9 w-full items-center justify-center rounded-md text-sm',
                       isGroupActive
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     )}
                   >
                     <group.icon className="h-4 w-4" />
@@ -150,7 +150,7 @@ export function Sidebar() {
                         'flex items-center gap-2 rounded px-2 py-1 text-sm',
                         pathname === item.href ||
                           (item.href !== '/' && pathname.startsWith(item.href + '/'))
-                          ? 'bg-accent font-medium'
+                          ? 'bg-primary/10 text-primary font-medium'
                           : 'hover:bg-accent'
                       )}
                     >
@@ -169,8 +169,8 @@ export function Sidebar() {
                 className={cn(
                   'flex h-9 w-full items-center gap-3 rounded-md px-3 text-sm',
                   isGroupActive
-                    ? 'text-accent-foreground font-medium'
-                    : 'text-muted-foreground hover:text-accent-foreground'
+                    ? 'text-foreground font-medium'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 <group.icon className="h-4 w-4 shrink-0" />
@@ -195,8 +195,8 @@ export function Sidebar() {
                         className={cn(
                           'flex h-8 items-center gap-2 rounded-md px-2 text-sm',
                           isActive
-                            ? 'bg-accent text-accent-foreground font-medium'
-                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                            ? 'bg-primary/10 text-primary font-medium'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                         )}
                       >
                         <item.icon className="h-3.5 w-3.5 shrink-0" />

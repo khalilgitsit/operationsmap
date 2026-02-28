@@ -503,6 +503,24 @@ export function ImportDialog({
 
 // ---- Tree node renderer ----
 
+const TREE_NODE_COLORS: Record<string, string> = {
+  function: 'text-[#2364b9]',
+  subfunction: 'text-[#0d5e4b]',
+  core_activity: 'text-[#984c0c]',
+  phase: 'text-[#4a2d82]',
+  process: 'text-[#2364b9]',
+  handoff: 'text-[#856404]',
+};
+
+const TREE_NODE_LABELS: Record<string, string> = {
+  function: 'Fn',
+  subfunction: 'SF',
+  core_activity: 'CA',
+  phase: 'Ph',
+  process: 'Pr',
+  handoff: 'HO',
+};
+
 function TreeNodeView({
   node,
   depth,
@@ -512,24 +530,6 @@ function TreeNodeView({
 }) {
   const [expanded, setExpanded] = useState(depth < 2);
   const hasChildren = node.children.length > 0;
-
-  const typeColors: Record<string, string> = {
-    function: 'text-blue-600',
-    subfunction: 'text-green-600',
-    core_activity: 'text-orange-600',
-    phase: 'text-purple-600',
-    process: 'text-blue-600',
-    handoff: 'text-amber-600',
-  };
-
-  const typeLabels: Record<string, string> = {
-    function: 'Fn',
-    subfunction: 'SF',
-    core_activity: 'CA',
-    phase: 'Ph',
-    process: 'Pr',
-    handoff: 'HO',
-  };
 
   const Icon = hasChildren ? (expanded ? ChevronDown : ChevronRight) : File;
   const FolderIcon = hasChildren ? Folder : File;
@@ -547,12 +547,12 @@ function TreeNodeView({
           <span className="w-3.5" />
         )}
         <FolderIcon
-          className={`h-3.5 w-3.5 shrink-0 ${typeColors[node.type] || 'text-muted-foreground'}`}
+          className={`h-3.5 w-3.5 shrink-0 ${TREE_NODE_COLORS[node.type] || 'text-muted-foreground'}`}
         />
         <span
-          className={`text-[10px] font-mono px-1 py-0.5 rounded ${typeColors[node.type] || ''} bg-muted`}
+          className={`text-[10px] font-mono px-1 py-0.5 rounded ${TREE_NODE_COLORS[node.type] || ''} bg-muted`}
         >
-          {typeLabels[node.type] || '??'}
+          {TREE_NODE_LABELS[node.type] || '??'}
         </span>
         <span className="truncate">{node.title}</span>
         {node.status && (

@@ -425,9 +425,9 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Toolbar */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -502,7 +502,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
 
       {/* Count */}
       {!loading && (
-        <div className="text-sm text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           {activeFilterCount > 0
             ? `${filteredCount} of ${totalCount} ${config.labelPlural}`
             : `${totalCount} ${config.labelPlural}`}
@@ -510,7 +510,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
       )}
 
       {/* Table */}
-      <div className="rounded-md border">
+      <div className="rounded-sm border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -592,7 +592,7 @@ export function DataTable({ config, onCreateNew, onRowClick, initialFilters }: D
                       {colIndex === 0 ? (
                         <Link
                           href={config.recordHref(row.id as string)}
-                          className="font-medium text-foreground hover:underline hover:text-primary cursor-pointer"
+                          className="font-medium text-foreground hover:text-primary cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (onRowClick) {
