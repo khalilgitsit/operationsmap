@@ -232,6 +232,7 @@ export async function inviteUser(email: string): Promise<ActionResult<null>> {
   const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
   const existingUser = existingUsers?.users?.find((u) => u.email === email);
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
   let userId: string;
   let membershipStatus: 'pending' | 'active';
 
@@ -248,11 +249,39 @@ export async function inviteUser(email: string): Promise<ActionResult<null>> {
       return { success: false, error: 'User is already a member of this workspace' };
     }
 
-    userId = existingUser.id;
-    membershipStatus = 'active'; // Existing user, no invite needed
+    // Check if this user has ever actually logged in (has any active org memberships)
+    // If not, they were created by a prior invite and need a fresh invite email
+    const { data: anyMemberships } = await serviceClient
+      .from('user_organizations')
+      .select('organization_id')
+      .eq('user_id', existingUser.id)
+      .limit(1);
+
+    const hasLoggedInBefore = anyMemberships && anyMemberships.length > 0;
+
+    if (hasLoggedInBefore) {
+      // Genuine existing user — add them directly as active
+      userId = existingUser.id;
+      membershipStatus = 'active';
+    } else {
+      // User exists in auth but has no org memberships — orphan from a failed prior invite.
+      // Delete the orphaned auth user and re-invite fresh so they get an actual email.
+      await serviceClient.auth.admin.deleteUser(existingUser.id);
+
+      const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${siteUrl}/auth/callback?next=/`,
+      });
+
+      if (inviteError) {
+        return { success: false, error: inviteError.message };
+      }
+      if (!inviteData.user) return { success: false, error: 'Failed to invite user' };
+
+      userId = inviteData.user.id;
+      membershipStatus = 'pending';
+    }
   } else {
-    // Invite new user via email — sends a magic link they can use to set their password
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+    // Brand new user — invite via email (sends a magic link)
     const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
       redirectTo: `${siteUrl}/auth/callback?next=/`,
     });
@@ -280,6 +309,72 @@ export async function inviteUser(email: string): Promise<ActionResult<null>> {
     } as never);
 
   if (linkError) return { success: false, error: linkError.message };
+
+  return { success: true, data: null };
+}
+
+export async function resendInvite(targetUserId: string): Promise<ActionResult<null>> {
+  const auth = await getAuthContextSafe();
+  if (!auth) return { success: false, error: 'Not authenticated' };
+  const serviceClient = await createServiceClient();
+
+  // Check caller is admin
+  const { data: myOrg } = await serviceClient
+    .from('user_organizations')
+    .select('role')
+    .eq('user_id', auth.userId)
+    .eq('organization_id', auth.organizationId)
+    .single();
+
+  if (!myOrg || (myOrg as { role: string }).role !== 'admin') {
+    return { success: false, error: 'Only admins can resend invites' };
+  }
+
+  // Verify the user is actually pending in this org
+  const { data: membership } = await serviceClient
+    .from('user_organizations')
+    .select('status')
+    .eq('user_id', targetUserId)
+    .eq('organization_id', auth.organizationId)
+    .single();
+
+  if (!membership || (membership as { status: string }).status !== 'pending') {
+    return { success: false, error: 'User is not a pending invite' };
+  }
+
+  // Get the target user's email
+  const { data: { user } } = await serviceClient.auth.admin.getUserById(targetUserId);
+  if (!user?.email) return { success: false, error: 'User not found' };
+
+  // Delete the auth user and re-invite to trigger a fresh email
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
+  await serviceClient.auth.admin.deleteUser(targetUserId);
+
+  const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(user.email, {
+    redirectTo: `${siteUrl}/auth/callback?next=/`,
+  });
+
+  if (inviteError) return { success: false, error: inviteError.message };
+  if (!inviteData.user) return { success: false, error: 'Failed to resend invite' };
+
+  // Update the user_organizations row with the new user ID (since we deleted and recreated)
+  await serviceClient
+    .from('user_organizations')
+    .delete()
+    .eq('user_id', targetUserId)
+    .eq('organization_id', auth.organizationId);
+
+  const { error: insertError } = await serviceClient
+    .from('user_organizations')
+    .insert({
+      user_id: inviteData.user.id,
+      organization_id: auth.organizationId,
+      role: 'member',
+      status: 'pending',
+    } as never);
+
+  if (insertError) return { success: false, error: insertError.message };
 
   return { success: true, data: null };
 }

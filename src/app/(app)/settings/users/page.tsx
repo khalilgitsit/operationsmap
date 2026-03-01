@@ -24,10 +24,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Loader2, Trash2, Shield, User, Clock, Mail } from 'lucide-react';
+import { Plus, Loader2, Trash2, Shield, User, Clock, Mail, RefreshCw } from 'lucide-react';
 import {
   listOrgUsers,
   inviteUser,
+  resendInvite,
   changeUserRole,
   removeUser,
   type OrgUser,
@@ -74,6 +75,17 @@ export default function UserManagementPage() {
       if (result.success) {
         toast.success('Role updated');
         loadUsers();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function handleResend(user: OrgUser) {
+    startTransition(async () => {
+      const result = await resendInvite(user.userId);
+      if (result.success) {
+        toast.success(`Invite resent to ${user.email}`);
       } else {
         toast.error(result.error);
       }
@@ -176,7 +188,16 @@ export default function UserManagementPage() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <span className="text-xs text-muted-foreground w-[120px] text-center">Invite sent</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-[120px] h-8 text-xs"
+                    onClick={() => handleResend(user)}
+                    disabled={isPending}
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Resend
+                  </Button>
                 )}
                 <Button
                   variant="ghost"
