@@ -17,19 +17,17 @@ export async function GET(request: Request) {
         const serviceClient = await createServiceClient();
         const { data: orgs } = await serviceClient
           .from('user_organizations')
-          .select('organization_id')
-          .eq('user_id', user.id)
-          .limit(1);
+          .select('organization_id, status')
+          .eq('user_id', user.id);
 
         if (!orgs || orgs.length === 0) {
-          // Derive org name from user metadata or email
+          // No org memberships at all — create a default org (first-time OAuth users)
           const fullName = user.user_metadata?.full_name || user.user_metadata?.name;
           const email = user.email || '';
           const orgName = fullName
             ? `${fullName}'s Organization`
             : `${email.split('@')[0]}'s Organization`;
 
-          // Create organization
           const { data: org, error: orgError } = await serviceClient
             .from('organizations')
             .insert({ name: orgName } as never)
@@ -37,15 +35,22 @@ export async function GET(request: Request) {
             .single();
 
           if (!orgError && org) {
-            // Link user to organization as admin
             await serviceClient
               .from('user_organizations')
               .insert({
                 user_id: user.id,
                 organization_id: org.id,
                 role: 'admin',
+                status: 'active',
               } as never);
           }
+        } else {
+          // Activate any pending memberships (user accepted invite)
+          await serviceClient
+            .from('user_organizations')
+            .update({ status: 'active' } as never)
+            .eq('user_id', user.id)
+            .eq('status', 'pending' as never);
         }
       }
 

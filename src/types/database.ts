@@ -2529,18 +2529,21 @@ export type Database = {
           created_at: string
           organization_id: string
           role: Database["public"]["Enums"]["org_role"]
+          status: Database["public"]["Enums"]["membership_status"]
           user_id: string
         }
         Insert: {
           created_at?: string
           organization_id: string
           role?: Database["public"]["Enums"]["org_role"]
+          status?: Database["public"]["Enums"]["membership_status"]
           user_id: string
         }
         Update: {
           created_at?: string
           organization_id?: string
           role?: Database["public"]["Enums"]["org_role"]
+          status?: Database["public"]["Enums"]["membership_status"]
           user_id?: string
         }
         Relationships: [
@@ -2717,6 +2720,7 @@ export type Database = {
         | "Active"
         | "Needs Update"
         | "Archived"
+      membership_status: "pending" | "active"
       org_role: "admin" | "member"
       person_status: "Active" | "Inactive"
       pricing_model: "Per Seat" | "Flat Rate" | "Usage-Based" | "Tiered"
@@ -2900,6 +2904,7 @@ export const Constants = {
         "Needs Update",
         "Archived",
       ],
+      membership_status: ["pending", "active"],
       org_role: ["admin", "member"],
       person_status: ["Active", "Inactive"],
       pricing_model: ["Per Seat", "Flat Rate", "Usage-Based", "Tiered"],

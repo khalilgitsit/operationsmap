@@ -179,6 +179,7 @@ export interface OrgUser {
   userId: string;
   email: string;
   role: string;
+  status: 'pending' | 'active';
   createdAt: string;
 }
 
@@ -189,19 +190,20 @@ export async function listOrgUsers(): Promise<ActionResult<OrgUser[]>> {
 
   const { data: userOrgs, error } = await serviceClient
     .from('user_organizations')
-    .select('user_id, role, created_at')
+    .select('user_id, role, status, created_at')
     .eq('organization_id', auth.organizationId);
 
   if (error) return { success: false, error: error.message };
 
   // Fetch user emails from auth
   const users: OrgUser[] = [];
-  for (const uo of (userOrgs || []) as { user_id: string; role: string; created_at: string }[]) {
+  for (const uo of (userOrgs || []) as { user_id: string; role: string; status: 'pending' | 'active'; created_at: string }[]) {
     const { data: { user } } = await serviceClient.auth.admin.getUserById(uo.user_id);
     users.push({
       userId: uo.user_id,
       email: user?.email || 'Unknown',
       role: uo.role,
+      status: uo.status || 'active',
       createdAt: uo.created_at,
     });
   }
@@ -231,6 +233,7 @@ export async function inviteUser(email: string): Promise<ActionResult<null>> {
   const existingUser = existingUsers?.users?.find((u) => u.email === email);
 
   let userId: string;
+  let membershipStatus: 'pending' | 'active';
 
   if (existingUser) {
     // User already exists — check if they're already in this org
@@ -246,10 +249,12 @@ export async function inviteUser(email: string): Promise<ActionResult<null>> {
     }
 
     userId = existingUser.id;
+    membershipStatus = 'active'; // Existing user, no invite needed
   } else {
     // Invite new user via email — sends a magic link they can use to set their password
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
     const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'}/auth/callback?next=/`,
+      redirectTo: `${siteUrl}/auth/callback?next=/`,
     });
 
     if (inviteError) {
@@ -261,15 +266,17 @@ export async function inviteUser(email: string): Promise<ActionResult<null>> {
     if (!inviteData.user) return { success: false, error: 'Failed to invite user' };
 
     userId = inviteData.user.id;
+    membershipStatus = 'pending'; // Invite sent, waiting for acceptance
   }
 
-  // Link to org
+  // Link to org with appropriate status
   const { error: linkError } = await serviceClient
     .from('user_organizations')
     .insert({
       user_id: userId,
       organization_id: auth.organizationId,
       role: 'member',
+      status: membershipStatus,
     } as never);
 
   if (linkError) return { success: false, error: linkError.message };

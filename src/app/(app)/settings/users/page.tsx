@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Loader2, Trash2, Shield, User } from 'lucide-react';
+import { Plus, Loader2, Trash2, Shield, User, Clock, Mail } from 'lucide-react';
 import {
   listOrgUsers,
   inviteUser,
@@ -138,30 +138,46 @@ export default function UserManagementPage() {
             {users.map((user) => (
               <div key={user.userId} className="flex items-center gap-3 p-4">
                 <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0">
-                  {user.role === 'admin' ? (
+                  {user.status === 'pending' ? (
+                    <Mail className="h-4 w-4 text-amber-500" />
+                  ) : user.role === 'admin' ? (
                     <Shield className="h-4 w-4 text-primary" />
                   ) : (
                     <User className="h-4 w-4 text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{user.email}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate">{user.email}</p>
+                    {user.status === 'pending' && (
+                      <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 shrink-0">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Pending Invite
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Joined {new Date(user.createdAt).toLocaleDateString()}
+                    {user.status === 'pending'
+                      ? `Invited ${new Date(user.createdAt).toLocaleDateString()}`
+                      : `Joined ${new Date(user.createdAt).toLocaleDateString()}`}
                   </p>
                 </div>
-                <Select
-                  value={user.role}
-                  onValueChange={(v) => handleRoleChange(user.userId, v as 'admin' | 'member')}
-                >
-                  <SelectTrigger className="w-[120px] h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="member">Member</SelectItem>
-                  </SelectContent>
-                </Select>
+                {user.status === 'active' ? (
+                  <Select
+                    value={user.role}
+                    onValueChange={(v) => handleRoleChange(user.userId, v as 'admin' | 'member')}
+                  >
+                    <SelectTrigger className="w-[120px] h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="member">Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="text-xs text-muted-foreground w-[120px] text-center">Invite sent</span>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
@@ -169,7 +185,7 @@ export default function UserManagementPage() {
                   onClick={() => setRemoveTarget(user)}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
-                  Remove
+                  {user.status === 'pending' ? 'Revoke' : 'Remove'}
                 </Button>
               </div>
             ))}
@@ -181,10 +197,13 @@ export default function UserManagementPage() {
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove User</AlertDialogTitle>
+            <AlertDialogTitle>
+              {removeTarget?.status === 'pending' ? 'Revoke Invite' : 'Remove User'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove {removeTarget?.email} from this workspace?
-              They will lose access to all data in this workspace.
+              {removeTarget?.status === 'pending'
+                ? `Are you sure you want to revoke the invite for ${removeTarget?.email}? They will no longer be able to join this workspace.`
+                : `Are you sure you want to remove ${removeTarget?.email} from this workspace? They will lose access to all data in this workspace.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -193,7 +212,7 @@ export default function UserManagementPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => removeTarget && handleRemove(removeTarget)}
             >
-              Remove
+              {removeTarget?.status === 'pending' ? 'Revoke' : 'Remove'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
